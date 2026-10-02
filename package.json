@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "@supabase/supabase-js": "^2.112.4",
     "canvas-confetti": "^1.9.4",
     "date-fns": "^4.4.0",
