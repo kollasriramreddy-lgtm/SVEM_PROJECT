@@ -5,13 +5,33 @@ import {
   SalaryHistory,
   ManagerSiteAssignment,
   Attendance,
+  AttendanceStatus,
   PayrollPeriod,
   PayrollRecord,
   PayrollAdjustment,
+  AdjustmentType,
   AuditLog,
   CompanySettings,
   PayrollRuleSettings,
   UserRole,
+  Client,
+  Vendor,
+  Machine,
+  Material,
+  DailyWorkEntry,
+  Advance,
+  PurchaseBill,
+  Payment,
+  Settlement,
+  SettlementItem,
+  LedgerEntry,
+  AppNotification,
+  AccountsDashboardSummary,
+  DashboardFilter,
+  PaymentDirection,
+  PaymentMode,
+  PaymentCategory,
+  AccountType,
 } from '../../types';
 import { calculateEmployeePayroll, formatINR } from '../payroll/payrollEngine';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -30,6 +50,18 @@ const STORAGE_KEYS = {
   AUDIT_LOGS: 'svem_audit_logs',
   COMPANY_SETTINGS: 'svem_company_settings',
   PAYROLL_RULES: 'svem_payroll_rules',
+  // Accounts & Work Tracking Keys
+  CLIENTS: 'svem_clients',
+  VENDORS: 'svem_vendors',
+  MACHINES: 'svem_machines',
+  MATERIALS: 'svem_materials',
+  DAILY_WORK_ENTRIES: 'svem_daily_work_entries',
+  ADVANCES: 'svem_advances',
+  PURCHASE_BILLS: 'svem_purchase_bills',
+  PAYMENTS: 'svem_payments',
+  SETTLEMENTS: 'svem_settlements',
+  LEDGER_ENTRIES: 'svem_ledger_entries',
+  NOTIFICATIONS: 'svem_notifications',
 };
 
 // Initial Seed Data
@@ -118,61 +150,57 @@ const INITIAL_EMPLOYEES: Employee[] = [
     monthly_salary: 30000,
     salary_effective_from: '2024-01-10',
     status: 'active',
-    notes: 'Primary operator for 20-ton CAT excavator on rock terrain.',
-    created_at: '2024-01-10T08:00:00Z',
-    updated_at: '2024-01-10T08:00:00Z',
-    site_name: 'Outer Ring Road Rock Cutting & Blasting Site',
+    notes: 'Expert in hydraulic rock excavator handling and tough trench slopes.',
+    created_at: '2024-01-10T10:00:00Z',
+    updated_at: '2024-01-10T10:00:00Z',
   },
   {
     id: 'emp-002',
     employee_code: 'SVEM-EMP-002',
     full_name: 'Mahesh Yadav',
     phone: '+91 97010 11002',
-    designation: 'Senior JCB 3DX Backhoe Operator',
+    designation: 'Senior JCB 3DX Operator',
     worker_type: 'JCB Operator',
     joining_date: '2024-02-15',
     site_id: 'site-orr-01',
     monthly_salary: 26000,
     salary_effective_from: '2024-02-15',
     status: 'active',
-    notes: 'Skilled in deep trenching and foundation backfilling.',
-    created_at: '2024-02-15T08:00:00Z',
-    updated_at: '2024-02-15T08:00:00Z',
-    site_name: 'Outer Ring Road Rock Cutting & Blasting Site',
+    notes: 'Skilled in trenching, foundation footing backfill and tight maneuvers.',
+    created_at: '2024-02-15T10:00:00Z',
+    updated_at: '2024-02-15T10:00:00Z',
   },
   {
     id: 'emp-003',
     employee_code: 'SVEM-EMP-003',
     full_name: 'Ramesh Nayak',
     phone: '+91 97010 11003',
-    designation: 'Master Pneumatic Rock Driller',
+    designation: 'Master Rock Driller & Compressor Operator',
     worker_type: 'Rock Driller',
     joining_date: '2024-03-01',
     site_id: 'site-orr-01',
     monthly_salary: 28000,
     salary_effective_from: '2024-03-01',
     status: 'active',
-    notes: 'Specialist in 115mm blasting drill rigs and dynamite placement holes.',
-    created_at: '2024-03-01T08:00:00Z',
-    updated_at: '2024-03-01T08:00:00Z',
-    site_name: 'Outer Ring Road Rock Cutting & Blasting Site',
+    notes: 'Specialist in 32mm blast hole pneumatic wagon drill rigs in hard granite.',
+    created_at: '2024-03-01T10:00:00Z',
+    updated_at: '2024-03-01T10:00:00Z',
   },
   {
     id: 'emp-004',
     employee_code: 'SVEM-EMP-004',
     full_name: 'Prakash Reddy',
     phone: '+91 97010 11004',
-    designation: 'Heavy Tipper Driver (10-Tyre BharatBenz)',
+    designation: 'Heavy Tipper Driver (10-Tyre)',
     worker_type: 'Driver',
     joining_date: '2024-04-01',
     site_id: 'site-gcb-02',
     monthly_salary: 22000,
     salary_effective_from: '2024-04-01',
     status: 'active',
-    notes: 'Muck shifting & quarry stone transport.',
-    created_at: '2024-04-01T08:00:00Z',
-    updated_at: '2024-04-01T08:00:00Z',
-    site_name: 'Gachibowli Commercial Foundation Excavation',
+    notes: 'Excavated rock muck shifting & quarry transport.',
+    created_at: '2024-04-01T10:00:00Z',
+    updated_at: '2024-04-01T10:00:00Z',
   },
   {
     id: 'emp-005',
@@ -186,78 +214,80 @@ const INITIAL_EMPLOYEES: Employee[] = [
     monthly_salary: 18000,
     salary_effective_from: '2024-05-10',
     status: 'active',
-    notes: 'Elevation checking, signalman & manual clearance.',
-    created_at: '2024-05-10T08:00:00Z',
-    updated_at: '2024-05-10T08:00:00Z',
-    site_name: 'Gachibowli Commercial Foundation Excavation',
-  },
-  {
-    id: 'emp-006',
-    employee_code: 'SVEM-EMP-006',
-    full_name: 'Venkat Ramana',
-    phone: '+91 97010 11006',
-    designation: 'Hydraulic Rock Breaker Operator',
-    worker_type: 'Machine Operator',
-    joining_date: '2024-06-01',
-    site_id: 'site-htc-03',
-    monthly_salary: 27000,
-    salary_effective_from: '2024-06-01',
-    status: 'active',
-    notes: 'Demolition concrete crushing and hard boulder breaking.',
-    created_at: '2024-06-01T08:00:00Z',
-    updated_at: '2024-06-01T08:00:00Z',
-    site_name: 'HITEC City Demolition & Land Clearing Project',
-  },
-  {
-    id: 'emp-007',
-    employee_code: 'SVEM-EMP-007',
-    full_name: 'Kishore G',
-    phone: '+91 97010 11007',
-    designation: 'Equipment Maintenance Helper',
-    worker_type: 'Helper',
-    joining_date: '2024-07-01',
-    site_id: 'site-htc-03',
-    monthly_salary: 16000,
-    salary_effective_from: '2024-07-01',
-    status: 'active',
-    notes: 'Daily greasing, diesel fueling and hydraulic hose checks.',
-    created_at: '2024-07-01T08:00:00Z',
-    updated_at: '2024-07-01T08:00:00Z',
-    site_name: 'HITEC City Demolition & Land Clearing Project',
+    notes: 'Site leveling, signalman & manual clearance.',
+    created_at: '2024-05-10T10:00:00Z',
+    updated_at: '2024-05-10T10:00:00Z',
   },
 ];
 
-const INITIAL_MANAGER_ASSIGNMENTS: ManagerSiteAssignment[] = [
+const INITIAL_CLIENTS: Client[] = [
   {
-    id: 'msa-01',
-    manager_id: 'usr-mgr-01',
-    site_id: 'site-orr-01',
-    assigned_from: '2024-01-01',
+    id: 'client-hmda-01',
+    client_name: 'HMDA Project Division',
+    company_name: 'HMDA Infrastructure Ltd',
+    phone: '+91 94401 12233',
+    address: 'Tarnaka, Hyderabad, Telangana 500007',
+    gst_number: '36AAACH1234A1ZT',
+    opening_balance: 350000,
+    credit_limit: 2000000,
+    notes: 'Govt expressway rock-cutting & boulder excavation contract.',
     status: 'active',
-    created_at: '2024-01-01T08:00:00Z',
+    created_at: '2024-01-05T09:00:00Z',
+    updated_at: '2024-01-05T09:00:00Z',
   },
   {
-    id: 'msa-02',
-    manager_id: 'usr-mgr-01',
-    site_id: 'site-gcb-02',
-    assigned_from: '2024-01-01',
+    id: 'client-aparna-02',
+    client_name: 'Venkatesh Rao (Director)',
+    company_name: 'Aparna Infra Projects',
+    phone: '+91 98492 44556',
+    address: 'Road No 36, Jubilee Hills, Hyderabad',
+    gst_number: '36AAPCA5678B1ZR',
+    opening_balance: 180000,
+    credit_limit: 1500000,
+    notes: 'Commercial cellar deep excavation & rock drilling.',
     status: 'active',
-    created_at: '2024-01-01T08:00:00Z',
+    created_at: '2024-02-10T09:00:00Z',
+    updated_at: '2024-02-10T09:00:00Z',
+  },
+];
+
+const INITIAL_VENDORS: Vendor[] = [
+  {
+    id: 'vendor-maxwell-01',
+    vendor_name: 'Maxwell Mining Supplies',
+    company_name: 'Maxwell Rock Cutting Tools Ltd',
+    phone: '+91 98495 55667',
+    address: 'Autonagar, Vijayawada & Jeedimetla, Hyderabad',
+    gst_number: '36AABCM4433D1ZS',
+    vendor_category: 'Drill-bit Supplier',
+    opening_balance: 100000,
+    credit_limit: 500000,
+    notes: 'Primary vendor for 32mm / 34mm carbide button bits and drill rods.',
+    status: 'active',
+    created_at: '2024-01-10T10:00:00Z',
+    updated_at: '2024-01-10T10:00:00Z',
   },
   {
-    id: 'msa-03',
-    manager_id: 'usr-mgr-02',
-    site_id: 'site-htc-03',
-    assigned_from: '2024-01-01',
+    id: 'vendor-diesel-02',
+    vendor_name: 'Sri Balaji Fuel Station',
+    company_name: 'Telangana Diesel & Lubricants',
+    phone: '+91 98491 88990',
+    address: 'Hayathnagar Highway, Hyderabad',
+    gst_number: '36AAFTD1122E1ZX',
+    vendor_category: 'Diesel Supplier',
+    opening_balance: 65000,
+    credit_limit: 400000,
+    notes: 'Bulk diesel bowser delivery for onsite compressors and excavators.',
     status: 'active',
-    created_at: '2024-01-01T08:00:00Z',
+    created_at: '2024-01-15T10:00:00Z',
+    updated_at: '2024-01-15T10:00:00Z',
   },
 ];
 
 const INITIAL_COMPANY_SETTINGS: CompanySettings = {
   company_name: 'Siddi Vinayaka Earth Movers',
-  tagline: 'Excavation, Rock Cutting, Controlled Blasting & Heavy Equipment Operations',
-  address: 'Plot 42, IDA Uppal, Hyderabad, Telangana 500039',
+  tagline: 'Excavation, Blasting, Rock Cutting & Heavy Equipment Operations',
+  address: 'Plot 42, Industrial Development Area, Uppal, Hyderabad, Telangana 500039',
   phone: '+91 98490 12345',
   email: 'operations@svem.in',
   gstin: '36AABCS1234F1Z8',
@@ -275,63 +305,47 @@ const INITIAL_PAYROLL_RULES: PayrollRuleSettings = {
   half_day_factor: 0.5,
 };
 
-// Helper to pre-generate realistic seed attendance for current and previous month
-function generateSeedAttendance(): Attendance[] {
-  const list: Attendance[] = [];
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1; // 1-12
-
-  // Generate for current month up to today
-  const todayDate = now.getDate();
-  INITIAL_EMPLOYEES.forEach((emp) => {
-    for (let d = 1; d <= todayDate; d++) {
-      const date = new Date(currentYear, currentMonth - 1, d);
-      const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
-      const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-
-      let status: 'Present' | 'Absent' | 'Sunday Duty' | 'Leave' | 'Half Day' = 'Present';
-
-      if (dayOfWeek === 0) {
-        // Some Sundays worked, some rest
-        status = d % 2 === 0 ? 'Sunday Duty' : 'Leave';
-      } else if (emp.id === 'emp-001' && d === 5) {
-        // Simulate a Saturday absence for Ravi to test rule
-        status = 'Absent';
-      } else if (d === 12 && emp.id === 'emp-005') {
-        status = 'Half Day';
-      }
-
-      list.push({
-        id: `att-seed-${emp.id}-${dateStr}`,
-        employee_id: emp.id,
-        site_id: emp.site_id || 'site-orr-01',
-        attendance_date: dateStr,
-        status,
-        shift: 'Day',
-        marked_by: 'usr-mgr-01',
-        marked_by_name: 'Ramesh Goud',
-        marked_at: `${dateStr}T18:00:00Z`,
-        created_at: `${dateStr}T18:00:00Z`,
-        updated_at: `${dateStr}T18:00:00Z`,
-        employee_name: emp.full_name,
-        employee_code: emp.employee_code,
-        designation: emp.designation,
-      });
-    }
-  });
-
-  return list;
-}
-
-// Memory / Local Storage Layer
 class DatabaseService {
+  private isInitialized = false;
+
+  public init() {
+    if (this.isInitialized) return;
+    if (typeof window === 'undefined') return;
+
+    if (!localStorage.getItem(STORAGE_KEYS.PROFILES)) {
+      this.set(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
+      this.set(STORAGE_KEYS.CURRENT_USER, INITIAL_PROFILES[0]);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.SITES)) {
+      this.set(STORAGE_KEYS.SITES, INITIAL_SITES);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.EMPLOYEES)) {
+      this.set(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.CLIENTS)) {
+      this.set(STORAGE_KEYS.CLIENTS, INITIAL_CLIENTS);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.VENDORS)) {
+      this.set(STORAGE_KEYS.VENDORS, INITIAL_VENDORS);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.COMPANY_SETTINGS)) {
+      this.set(STORAGE_KEYS.COMPANY_SETTINGS, INITIAL_COMPANY_SETTINGS);
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.PAYROLL_RULES)) {
+      this.set(STORAGE_KEYS.PAYROLL_RULES, INITIAL_PAYROLL_RULES);
+    }
+
+    this.isInitialized = true;
+  }
+
   private get<T>(key: string, defaultValue: T): T {
     try {
       const data = localStorage.getItem(key);
-      if (!data) return defaultValue;
-      return JSON.parse(data) as T;
-    } catch {
+      return data ? JSON.parse(data) : defaultValue;
+    } catch (e) {
+      console.error(`Error reading ${key} from LocalStorage:`, e);
       return defaultValue;
     }
   }
@@ -340,103 +354,27 @@ class DatabaseService {
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (e) {
-      console.error(`Failed to save key ${key} to localStorage:`, e);
+      console.error(`Error writing ${key} to LocalStorage:`, e);
     }
   }
 
-  public init(): void {
-    if (!localStorage.getItem(STORAGE_KEYS.PROFILES)) {
-      this.set(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
+  // Auth / Login
+  public async login(email: string, pass: string): Promise<Profile> {
+    const profiles = await this.getProfiles();
+    const user = profiles.find((p) => p.email.toLowerCase() === email.toLowerCase());
+    if (user && user.status === 'active') {
+      await this.setCurrentUser(user);
+      return user;
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-      this.set(STORAGE_KEYS.CURRENT_USER, INITIAL_PROFILES[0]); // Default Super Admin
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.SITES)) {
-      this.set(STORAGE_KEYS.SITES, INITIAL_SITES);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.EMPLOYEES)) {
-      this.set(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.MANAGER_ASSIGNMENTS)) {
-      this.set(STORAGE_KEYS.MANAGER_ASSIGNMENTS, INITIAL_MANAGER_ASSIGNMENTS);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.COMPANY_SETTINGS)) {
-      this.set(STORAGE_KEYS.COMPANY_SETTINGS, INITIAL_COMPANY_SETTINGS);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.PAYROLL_RULES)) {
-      this.set(STORAGE_KEYS.PAYROLL_RULES, INITIAL_PAYROLL_RULES);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.ATTENDANCE)) {
-      this.set(STORAGE_KEYS.ATTENDANCE, generateSeedAttendance());
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.SALARY_HISTORY)) {
-      this.set(STORAGE_KEYS.SALARY_HISTORY, []);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.PAYROLL_PERIODS)) {
-      const now = new Date();
-      const initialPeriod: PayrollPeriod = {
-        id: `period-${now.getFullYear()}-${now.getMonth() + 1}`,
-        month: now.getMonth() + 1,
-        year: now.getFullYear(),
-        status: 'Calculated',
-        generated_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      this.set(STORAGE_KEYS.PAYROLL_PERIODS, [initialPeriod]);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS)) {
-      const initialLogs: AuditLog[] = [
-        {
-          id: 'log-001',
-          user_id: 'usr-admin-01',
-          user_name: 'K. Sri Ram Reddy',
-          user_role: 'super_admin',
-          action: 'SYSTEM_INITIALIZED',
-          entity_type: 'SYSTEM',
-          description: 'Siddi Vinayaka Earth Movers enterprise portal initialized with Hyderabad operations configuration.',
-          created_at: new Date().toISOString(),
-        },
-      ];
-      this.set(STORAGE_KEYS.AUDIT_LOGS, initialLogs);
-    }
+    throw new Error('Invalid email or inactive profile.');
   }
 
-  // Auth & Profile operations
   public async getCurrentUser(): Promise<Profile> {
     return this.get<Profile>(STORAGE_KEYS.CURRENT_USER, INITIAL_PROFILES[0]);
   }
 
-  public async setCurrentUser(profile: Profile): Promise<void> {
-    this.set(STORAGE_KEYS.CURRENT_USER, profile);
-    await this.addAuditLog({
-      action: 'SWITCH_USER_DEMO',
-      entity_type: 'PROFILE',
-      entity_id: profile.id,
-      description: `Active session switched to ${profile.full_name} (${profile.role}).`,
-    });
-  }
-
-  public async login(email: string, _password?: string): Promise<Profile> {
-    const profiles = this.get<Profile[]>(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
-    const found = profiles.find((p) => p.email.toLowerCase() === email.toLowerCase());
-    if (!found) {
-      throw new Error(`Invalid credentials or user '${email}' not found.`);
-    }
-    if (found.status !== 'active') {
-      throw new Error(`Account is ${found.status}. Contact administrator.`);
-    }
-    this.set(STORAGE_KEYS.CURRENT_USER, found);
-    await this.addAuditLog({
-      user_id: found.id,
-      user_name: found.full_name,
-      user_role: found.role,
-      action: 'USER_LOGIN',
-      entity_type: 'AUTH',
-      entity_id: found.id,
-      description: `User ${found.full_name} logged in successfully.`,
-    });
-    return found;
+  public async setCurrentUser(user: Profile): Promise<void> {
+    this.set(STORAGE_KEYS.CURRENT_USER, user);
   }
 
   public async getProfiles(): Promise<Profile[]> {
@@ -445,45 +383,46 @@ class DatabaseService {
 
   public async createProfile(profileData: Omit<Profile, 'id' | 'created_at' | 'updated_at'>): Promise<Profile> {
     const profiles = await this.getProfiles();
-    const newProfile: Profile = {
+    const newP: Profile = {
       ...profileData,
       id: `usr-${Date.now()}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    profiles.push(newProfile);
+    profiles.push(newP);
     this.set(STORAGE_KEYS.PROFILES, profiles);
-    await this.addAuditLog({
-      action: 'CREATE_PROFILE',
-      entity_type: 'PROFILE',
-      entity_id: newProfile.id,
-      new_values: newProfile,
-      description: `Created new ${newProfile.role} profile for ${newProfile.full_name} (${newProfile.email}).`,
-    });
-    return newProfile;
+    return newP;
   }
 
-  public async updateProfile(id: string, updates: Partial<Profile>): Promise<Profile> {
+  public async updateProfile(
+    idOrProfile: string | Profile,
+    updates?: Partial<Profile>
+  ): Promise<Profile | undefined> {
     const profiles = await this.getProfiles();
+    const id = typeof idOrProfile === 'string' ? idOrProfile : idOrProfile.id;
     const idx = profiles.findIndex((p) => p.id === id);
-    if (idx === -1) throw new Error('User not found');
-    const old = { ...profiles[idx] };
-    profiles[idx] = { ...profiles[idx], ...updates, updated_at: new Date().toISOString() };
-    this.set(STORAGE_KEYS.PROFILES, profiles);
-    await this.addAuditLog({
-      action: 'UPDATE_PROFILE',
-      entity_type: 'PROFILE',
-      entity_id: id,
-      old_values: old,
-      new_values: profiles[idx],
-      description: `Updated profile details for ${profiles[idx].full_name}.`,
-    });
-    return profiles[idx];
+    if (idx !== -1) {
+      const existing = profiles[idx];
+      const merged =
+        typeof idOrProfile === 'string'
+          ? { ...existing, ...updates, updated_at: new Date().toISOString() }
+          : { ...existing, ...idOrProfile, updated_at: new Date().toISOString() };
+      profiles[idx] = merged as Profile;
+      this.set(STORAGE_KEYS.PROFILES, profiles);
+      return profiles[idx];
+    }
+    return undefined;
   }
 
-  // Sites Operations
-  public async getSites(): Promise<Site[]> {
-    return this.get<Site[]>(STORAGE_KEYS.SITES, INITIAL_SITES);
+  // Sites
+  public async getSites(managerId?: string): Promise<Site[]> {
+    let sites = this.get<Site[]>(STORAGE_KEYS.SITES, INITIAL_SITES);
+    if (managerId) {
+      const assignments = await this.getManagerSiteAssignments(managerId);
+      const assignedIds = assignments.filter((a) => a.status === 'active').map((a) => a.site_id);
+      sites = sites.filter((s) => assignedIds.includes(s.id));
+    }
+    return sites;
   }
 
   public async getSiteById(id: string): Promise<Site | undefined> {
@@ -493,9 +432,6 @@ class DatabaseService {
 
   public async createSite(siteData: Omit<Site, 'id' | 'created_at' | 'updated_at'>): Promise<Site> {
     const sites = await this.getSites();
-    if (sites.some((s) => s.site_code.toLowerCase() === siteData.site_code.toLowerCase())) {
-      throw new Error(`Site code '${siteData.site_code}' already exists.`);
-    }
     const newSite: Site = {
       ...siteData,
       id: `site-${Date.now()}`,
@@ -504,39 +440,38 @@ class DatabaseService {
     };
     sites.push(newSite);
     this.set(STORAGE_KEYS.SITES, sites);
-    await this.addAuditLog({
-      action: 'CREATE_SITE',
-      entity_type: 'SITE',
-      entity_id: newSite.id,
-      new_values: newSite,
-      description: `Created site ${newSite.site_name} (${newSite.site_code}) for client ${newSite.client_name}.`,
-    });
     return newSite;
   }
 
-  public async updateSite(id: string, updates: Partial<Site>): Promise<Site> {
+  public async updateSite(
+    idOrSite: string | Site,
+    updates?: Partial<Site>
+  ): Promise<Site | undefined> {
     const sites = await this.getSites();
-    const idx = sites.findIndex((s) => s.id === id);
-    if (idx === -1) throw new Error('Site not found');
-    const old = { ...sites[idx] };
-    sites[idx] = { ...sites[idx], ...updates, updated_at: new Date().toISOString() };
-    this.set(STORAGE_KEYS.SITES, sites);
-    await this.addAuditLog({
-      action: 'UPDATE_SITE',
-      entity_type: 'SITE',
-      entity_id: id,
-      old_values: old,
-      new_values: sites[idx],
-      description: `Updated site details for ${sites[idx].site_name}.`,
-    });
-    return sites[idx];
+    const id = typeof idOrSite === 'string' ? idOrSite : idOrSite.id;
+    const index = sites.findIndex((s) => s.id === id);
+    if (index !== -1) {
+      const existing = sites[index];
+      const merged =
+        typeof idOrSite === 'string'
+          ? { ...existing, ...updates, updated_at: new Date().toISOString() }
+          : { ...existing, ...idOrSite, updated_at: new Date().toISOString() };
+      sites[index] = merged as Site;
+      this.set(STORAGE_KEYS.SITES, sites);
+      return sites[index];
+    }
+    return undefined;
   }
 
   // Manager Site Assignments
-  public async getManagerSiteAssignments(): Promise<ManagerSiteAssignment[]> {
-    const assignments = this.get<ManagerSiteAssignment[]>(STORAGE_KEYS.MANAGER_ASSIGNMENTS, INITIAL_MANAGER_ASSIGNMENTS);
+  public async getManagerSiteAssignments(managerId?: string): Promise<ManagerSiteAssignment[]> {
+    let assignments = this.get<ManagerSiteAssignment[]>(STORAGE_KEYS.MANAGER_ASSIGNMENTS, []);
     const sites = await this.getSites();
     const profiles = await this.getProfiles();
+
+    if (managerId) {
+      assignments = assignments.filter((a) => a.manager_id === managerId);
+    }
 
     return assignments.map((a) => ({
       ...a,
@@ -545,53 +480,48 @@ class DatabaseService {
     }));
   }
 
-  public async assignManagerToSite(managerId: string, siteId: string): Promise<ManagerSiteAssignment> {
-    const list = this.get<ManagerSiteAssignment[]>(STORAGE_KEYS.MANAGER_ASSIGNMENTS, INITIAL_MANAGER_ASSIGNMENTS);
-    const existing = list.find((a) => a.manager_id === managerId && a.site_id === siteId);
-    if (existing) {
-      existing.status = 'active';
-      this.set(STORAGE_KEYS.MANAGER_ASSIGNMENTS, list);
-      return existing;
+  public async assignManagerToSite(managerId: string, siteId: string): Promise<void> {
+    const assignments = this.get<ManagerSiteAssignment[]>(STORAGE_KEYS.MANAGER_ASSIGNMENTS, []);
+    const exists = assignments.find((a) => a.manager_id === managerId && a.site_id === siteId);
+    if (!exists) {
+      assignments.push({
+        id: `msa-${Date.now()}`,
+        manager_id: managerId,
+        site_id: siteId,
+        assigned_from: new Date().toISOString().split('T')[0],
+        status: 'active',
+        created_at: new Date().toISOString(),
+      });
+      this.set(STORAGE_KEYS.MANAGER_ASSIGNMENTS, assignments);
     }
-    const newAssignment: ManagerSiteAssignment = {
-      id: `msa-${Date.now()}`,
-      manager_id: managerId,
-      site_id: siteId,
-      assigned_from: new Date().toISOString().split('T')[0],
-      status: 'active',
-      created_at: new Date().toISOString(),
-    };
-    list.push(newAssignment);
-    this.set(STORAGE_KEYS.MANAGER_ASSIGNMENTS, list);
-    await this.addAuditLog({
-      action: 'ASSIGN_MANAGER',
-      entity_type: 'MANAGER_ASSIGNMENT',
-      entity_id: newAssignment.id,
-      description: `Assigned manager ID ${managerId} to site ID ${siteId}.`,
-    });
-    return newAssignment;
   }
 
-  public async removeManagerSiteAssignment(id: string): Promise<void> {
-    const list = this.get<ManagerSiteAssignment[]>(STORAGE_KEYS.MANAGER_ASSIGNMENTS, INITIAL_MANAGER_ASSIGNMENTS);
-    const filtered = list.filter((a) => a.id !== id);
-    this.set(STORAGE_KEYS.MANAGER_ASSIGNMENTS, filtered);
-    await this.addAuditLog({
-      action: 'REMOVE_MANAGER_ASSIGNMENT',
-      entity_type: 'MANAGER_ASSIGNMENT',
-      entity_id: id,
-      description: `Removed manager site assignment ID ${id}.`,
-    });
+  public async removeManagerSiteAssignment(assignmentId: string): Promise<void> {
+    let assignments = this.get<ManagerSiteAssignment[]>(STORAGE_KEYS.MANAGER_ASSIGNMENTS, []);
+    assignments = assignments.filter((a) => a.id !== assignmentId);
+    this.set(STORAGE_KEYS.MANAGER_ASSIGNMENTS, assignments);
   }
 
-  // Employees (Workers) Operations
-  public async getEmployees(): Promise<Employee[]> {
-    const employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+  // Employees
+  public async getEmployees(siteId?: string, managerId?: string): Promise<Employee[]> {
+    let employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
     const sites = await this.getSites();
-    return employees.map((emp) => ({
-      ...emp,
-      site_name: sites.find((s) => s.id === emp.site_id)?.site_name || 'Unassigned',
-    }));
+
+    if (siteId) {
+      employees = employees.filter((e) => e.site_id === siteId);
+    } else if (managerId) {
+      const assignments = await this.getManagerSiteAssignments(managerId);
+      const siteIds = assignments.filter((a) => a.status === 'active').map((a) => a.site_id);
+      employees = employees.filter((e) => e.site_id && siteIds.includes(e.site_id));
+    }
+
+    return employees.map((emp) => {
+      const site = sites.find((s) => s.id === emp.site_id);
+      return {
+        ...emp,
+        site_name: site ? site.site_name : 'Unassigned',
+      };
+    });
   }
 
   public async getEmployeeById(id: string): Promise<Employee | undefined> {
@@ -600,10 +530,7 @@ class DatabaseService {
   }
 
   public async createEmployee(empData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Promise<Employee> {
-    const employees = await this.getEmployees();
-    if (employees.some((e) => e.employee_code.toLowerCase() === empData.employee_code.toLowerCase())) {
-      throw new Error(`Employee code '${empData.employee_code}' already exists.`);
-    }
+    const employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
     const newEmp: Employee = {
       ...empData,
       id: `emp-${Date.now()}`,
@@ -612,371 +539,1156 @@ class DatabaseService {
     };
     employees.push(newEmp);
     this.set(STORAGE_KEYS.EMPLOYEES, employees);
-    await this.addAuditLog({
-      action: 'CREATE_EMPLOYEE',
-      entity_type: 'EMPLOYEE',
-      entity_id: newEmp.id,
-      new_values: newEmp,
-      description: `Added new employee ${newEmp.full_name} (${newEmp.employee_code}, ${newEmp.designation}) with salary ${formatINR(newEmp.monthly_salary)}.`,
-    });
     return newEmp;
   }
 
-  public async updateEmployee(id: string, updates: Partial<Employee>): Promise<Employee> {
+  public async updateEmployee(
+    idOrEmp: string | Employee,
+    updates?: Partial<Employee>
+  ): Promise<Employee | undefined> {
+    const employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+    const id = typeof idOrEmp === 'string' ? idOrEmp : idOrEmp.id;
+    const index = employees.findIndex((e) => e.id === id);
+    if (index !== -1) {
+      const existing = employees[index];
+      const merged =
+        typeof idOrEmp === 'string'
+          ? { ...existing, ...updates, updated_at: new Date().toISOString() }
+          : { ...existing, ...idOrEmp, updated_at: new Date().toISOString() };
+      employees[index] = merged as Employee;
+      this.set(STORAGE_KEYS.EMPLOYEES, employees);
+      return employees[index];
+    }
+    return undefined;
+  }
+
+  public async getSalaryHistory(employeeId: string): Promise<SalaryHistory[]> {
+    const history = this.get<SalaryHistory[]>(STORAGE_KEYS.SALARY_HISTORY, []);
+    return history.filter((h) => h.employee_id === employeeId);
+  }
+
+  public async getSalaryHistoryForEmployee(employeeId: string): Promise<SalaryHistory[]> {
+    return this.getSalaryHistory(employeeId);
+  }
+
+  public async recordSalaryRevision(
+    employeeId: string,
+    newSalary: number,
+    reason: string
+  ): Promise<void> {
     const employees = await this.getEmployees();
-    const idx = employees.findIndex((e) => e.id === id);
-    if (idx === -1) throw new Error('Employee not found');
-    const old = { ...employees[idx] };
-    employees[idx] = { ...employees[idx], ...updates, updated_at: new Date().toISOString() };
-    this.set(STORAGE_KEYS.EMPLOYEES, employees);
-    await this.addAuditLog({
-      action: 'UPDATE_EMPLOYEE',
-      entity_type: 'EMPLOYEE',
-      entity_id: id,
-      old_values: old,
-      new_values: employees[idx],
-      description: `Updated employee profile for ${employees[idx].full_name} (${employees[idx].employee_code}).`,
-    });
-    return employees[idx];
+    const emp = employees.find((e) => e.id === employeeId);
+    if (emp) {
+      const history = this.get<SalaryHistory[]>(STORAGE_KEYS.SALARY_HISTORY, []);
+      history.unshift({
+        id: `sh-${Date.now()}`,
+        employee_id: employeeId,
+        previous_salary: emp.monthly_salary,
+        new_salary: newSalary,
+        effective_from: new Date().toISOString().split('T')[0],
+        reason: reason,
+        created_at: new Date().toISOString(),
+      });
+      this.set(STORAGE_KEYS.SALARY_HISTORY, history);
+
+      emp.monthly_salary = newSalary;
+      await this.updateEmployee(emp);
+    }
   }
 
   public async updateEmployeeSalary(
     employeeId: string,
     newSalary: number,
-    effectiveFrom: string,
-    reason: string
+    effectiveFromOrReason: string,
+    reason?: string
   ): Promise<void> {
-    const currentUser = await this.getCurrentUser();
-    const employee = await this.getEmployeeById(employeeId);
-    if (!employee) throw new Error('Employee not found');
-
-    const previousSalary = employee.monthly_salary;
-    const historyList = this.get<SalaryHistory[]>(STORAGE_KEYS.SALARY_HISTORY, []);
-
-    const newHistory: SalaryHistory = {
-      id: `sal-hist-${Date.now()}`,
-      employee_id: employeeId,
-      previous_salary: previousSalary,
-      new_salary: newSalary,
-      effective_from: effectiveFrom,
-      changed_by: currentUser.id,
-      changed_by_name: currentUser.full_name,
-      reason,
-      created_at: new Date().toISOString(),
-    };
-
-    historyList.unshift(newHistory);
-    this.set(STORAGE_KEYS.SALARY_HISTORY, historyList);
-
-    await this.updateEmployee(employeeId, {
-      monthly_salary: newSalary,
-      salary_effective_from: effectiveFrom,
-    });
-
-    await this.addAuditLog({
-      action: 'SALARY_REVISION',
-      entity_type: 'EMPLOYEE_SALARY',
-      entity_id: employeeId,
-      old_values: { monthly_salary: previousSalary },
-      new_values: { monthly_salary: newSalary, effective_from: effectiveFrom, reason },
-      description: `Revised salary of ${employee.full_name} from ${formatINR(previousSalary)} to ${formatINR(newSalary)}. Reason: ${reason}.`,
-    });
+    const actualReason = reason || effectiveFromOrReason;
+    return this.recordSalaryRevision(employeeId, newSalary, actualReason);
   }
 
-  public async getSalaryHistoryForEmployee(employeeId: string): Promise<SalaryHistory[]> {
-    const history = this.get<SalaryHistory[]>(STORAGE_KEYS.SALARY_HISTORY, []);
-    return history.filter((h) => h.employee_id === employeeId);
-  }
+  // Attendance
+  public async getAttendance(date?: string, siteId?: string): Promise<Attendance[]> {
+    let attendance = this.get<Attendance[]>(STORAGE_KEYS.ATTENDANCE, []);
+    const employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+    const sites = this.get<Site[]>(STORAGE_KEYS.SITES, INITIAL_SITES);
 
-  // Attendance Operations
-  public async getAttendanceForSiteAndDate(siteId: string, dateStr: string): Promise<Attendance[]> {
-    const all = this.get<Attendance[]>(STORAGE_KEYS.ATTENDANCE, []);
-    return all.filter((a) => a.site_id === siteId && a.attendance_date === dateStr);
+    if (date) attendance = attendance.filter((a) => a.attendance_date === date);
+    if (siteId) attendance = attendance.filter((a) => a.site_id === siteId);
+
+    return attendance.map((att) => {
+      const emp = employees.find((e) => e.id === att.employee_id);
+      const site = sites.find((s) => s.id === att.site_id);
+      return {
+        ...att,
+        employee_name: emp ? emp.full_name : 'Unknown',
+        employee_code: emp ? emp.employee_code : '',
+        designation: emp ? emp.designation : '',
+        site_name: site ? site.site_name : '',
+      };
+    });
   }
 
   public async getAttendanceForMonth(year: number, month: number): Promise<Attendance[]> {
-    const all = this.get<Attendance[]>(STORAGE_KEYS.ATTENDANCE, []);
+    const attendance = this.get<Attendance[]>(STORAGE_KEYS.ATTENDANCE, []);
     const prefix = `${year}-${String(month).padStart(2, '0')}`;
-    return all.filter((a) => a.attendance_date.startsWith(prefix));
+    const monthAtt = attendance.filter((a) => a.attendance_date.startsWith(prefix));
+
+    const employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+    const sites = this.get<Site[]>(STORAGE_KEYS.SITES, INITIAL_SITES);
+
+    return monthAtt.map((att) => {
+      const emp = employees.find((e) => e.id === att.employee_id);
+      const site = sites.find((s) => s.id === att.site_id);
+      return {
+        ...att,
+        employee_name: emp ? emp.full_name : 'Unknown',
+        employee_code: emp ? emp.employee_code : '',
+        designation: emp ? emp.designation : '',
+        site_name: site ? site.site_name : '',
+      };
+    });
   }
 
-  public async getAttendanceForEmployee(employeeId: string): Promise<Attendance[]> {
-    const all = this.get<Attendance[]>(STORAGE_KEYS.ATTENDANCE, []);
-    return all.filter((a) => a.employee_id === employeeId);
+  public async getAttendanceForSiteAndDate(siteId: string, date: string): Promise<Attendance[]> {
+    return this.getAttendance(date, siteId);
   }
 
   public async saveBatchAttendance(
     siteId: string,
-    dateStr: string,
-    records: { employee_id: string; status: Attendance['status']; shift?: Attendance['shift']; remarks?: string }[]
+    date: string,
+    records: { employee_id: string; status: AttendanceStatus; shift?: string; remarks?: string }[]
   ): Promise<void> {
-    const currentUser = await this.getCurrentUser();
-    const all = this.get<Attendance[]>(STORAGE_KEYS.ATTENDANCE, []);
-    const employees = await this.getEmployees();
-    const site = await this.getSiteById(siteId);
+    let attendance = this.get<Attendance[]>(STORAGE_KEYS.ATTENDANCE, []);
+    attendance = attendance.filter((a) => !(a.site_id === siteId && a.attendance_date === date));
 
-    // Map existing records to preserve or update
-    const map = new Map<string, Attendance>();
-    all.forEach((a) => map.set(`${a.employee_id}_${a.attendance_date}`, a));
+    const newEntries: Attendance[] = records.map((r, idx) => ({
+      id: `att-${Date.now()}-${idx}`,
+      site_id: siteId,
+      attendance_date: date,
+      employee_id: r.employee_id,
+      status: r.status,
+      shift: (r.shift === 'Night' ? 'Night' : 'Day') as 'Day' | 'Night',
+      remarks: r.remarks || '',
+      marked_at: new Date().toISOString(),
+      marked_by: 'Admin',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+
+    attendance.push(...newEntries);
+    this.set(STORAGE_KEYS.ATTENDANCE, attendance);
+  }
+
+  public async markAttendance(records: Omit<Attendance, 'id' | 'created_at' | 'updated_at'>[]): Promise<void> {
+    const attendance = this.get<Attendance[]>(STORAGE_KEYS.ATTENDANCE, []);
+    const now = new Date().toISOString();
 
     records.forEach((rec) => {
-      const key = `${rec.employee_id}_${dateStr}`;
-      const emp = employees.find((e) => e.id === rec.employee_id);
-      const existing = map.get(key);
-
-      if (existing) {
-        map.set(key, {
-          ...existing,
-          status: rec.status,
-          shift: rec.shift || existing.shift || 'Day',
-          remarks: rec.remarks || existing.remarks,
-          edited_by: currentUser.id,
-          edited_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
+      const idx = attendance.findIndex(
+        (a) => a.employee_id === rec.employee_id && a.attendance_date === rec.attendance_date
+      );
+      if (idx !== -1) {
+        attendance[idx] = { ...attendance[idx], ...rec, updated_at: now };
       } else {
-        map.set(key, {
-          id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          employee_id: rec.employee_id,
-          site_id: siteId,
-          attendance_date: dateStr,
-          status: rec.status,
-          shift: rec.shift || 'Day',
-          remarks: rec.remarks,
-          marked_by: currentUser.id,
-          marked_by_name: currentUser.full_name,
-          marked_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          employee_name: emp?.full_name,
-          employee_code: emp?.employee_code,
-          designation: emp?.designation,
-          site_name: site?.site_name,
+        attendance.push({
+          ...rec,
+          id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          created_at: now,
+          updated_at: now,
         });
       }
     });
 
-    const updatedList = Array.from(map.values());
-    this.set(STORAGE_KEYS.ATTENDANCE, updatedList);
-
-    await this.addAuditLog({
-      action: 'SAVE_ATTENDANCE_BATCH',
-      entity_type: 'ATTENDANCE',
-      entity_id: `${siteId}_${dateStr}`,
-      description: `Recorded attendance for ${records.length} worker(s) at site ${site?.site_name || siteId} for date ${dateStr}.`,
-    });
+    this.set(STORAGE_KEYS.ATTENDANCE, attendance);
   }
 
-  // Payroll Operations
-  public async getPayrollPeriods(): Promise<PayrollPeriod[]> {
-    return this.get<PayrollPeriod[]>(STORAGE_KEYS.PAYROLL_PERIODS, []);
-  }
-
-  public async getOrCreatePayrollPeriod(year: number, month: number): Promise<PayrollPeriod> {
-    const periods = await this.getPayrollPeriods();
+  // Payroll
+  public async calculatePayrollForPeriod(
+    year: number,
+    month: number
+  ): Promise<{ period: PayrollPeriod; records: PayrollRecord[] }> {
+    const periods = this.get<PayrollPeriod[]>(STORAGE_KEYS.PAYROLL_PERIODS, []);
     let period = periods.find((p) => p.year === year && p.month === month);
+
     if (!period) {
       period = {
         id: `period-${year}-${month}`,
         year,
         month,
         status: 'Draft',
+        generated_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
       periods.push(period);
       this.set(STORAGE_KEYS.PAYROLL_PERIODS, periods);
     }
-    return period;
-  }
 
-  public async calculatePayrollForPeriod(year: number, month: number): Promise<{ period: PayrollPeriod; records: PayrollRecord[] }> {
-    const period = await this.getOrCreatePayrollPeriod(year, month);
     const employees = await this.getEmployees();
+    const attendance = await this.getAttendanceForMonth(year, month);
     const rules = await this.getPayrollRules();
-    const monthlyAttendance = await this.getAttendanceForMonth(year, month);
-    const allAdjustments = this.get<PayrollAdjustment[]>(STORAGE_KEYS.PAYROLL_ADJUSTMENTS, []);
+    const adjustments = this.get<PayrollAdjustment[]>(STORAGE_KEYS.PAYROLL_ADJUSTMENTS, []);
 
-    const records: PayrollRecord[] = employees
-      .filter((emp) => emp.status === 'active')
-      .map((employee) => {
-        const empAttendances = monthlyAttendance.filter((a) => a.employee_id === employee.id);
-        const empAdjustments = allAdjustments.filter((adj) => adj.payroll_record_id === `payrec-${employee.id}-${year}-${month}`);
-
-        return calculateEmployeePayroll({
-          employee,
-          year,
-          month,
-          attendances: empAttendances,
-          adjustments: empAdjustments,
-          rules,
-        });
+    const records: PayrollRecord[] = employees.map((emp) => {
+      const empAtt = attendance.filter((a) => a.employee_id === emp.id);
+      const empAdj = adjustments.filter((a) => a.payroll_record_id === `${period!.id}-${emp.id}`);
+      return calculateEmployeePayroll({
+        employee: emp,
+        year,
+        month,
+        attendances: empAtt,
+        adjustments: empAdj,
+        rules,
       });
-
-    // Update Period Status
-    const periods = await this.getPayrollPeriods();
-    const pIdx = periods.findIndex((p) => p.id === period.id);
-    if (pIdx !== -1) {
-      if (periods[pIdx].status === 'Draft') {
-        periods[pIdx].status = 'Calculated';
-      }
-      periods[pIdx].generated_at = new Date().toISOString();
-      periods[pIdx].updated_at = new Date().toISOString();
-      this.set(STORAGE_KEYS.PAYROLL_PERIODS, periods);
-      period.status = periods[pIdx].status;
-    }
-
-    // Save Payroll Records
-    const existingRecords = this.get<PayrollRecord[]>(STORAGE_KEYS.PAYROLL_RECORDS, []);
-    const otherRecords = existingRecords.filter((r) => r.payroll_period_id !== period.id);
-    this.set(STORAGE_KEYS.PAYROLL_RECORDS, [...otherRecords, ...records]);
-
-    await this.addAuditLog({
-      action: 'CALCULATE_PAYROLL',
-      entity_type: 'PAYROLL_PERIOD',
-      entity_id: period.id,
-      description: `Calculated monthly payroll for ${records.length} employees for ${month}/${year}.`,
     });
 
+    this.set(STORAGE_KEYS.PAYROLL_RECORDS, records);
     return { period, records };
   }
 
-  public async getPayrollRecordsForPeriod(periodId: string): Promise<PayrollRecord[]> {
-    const records = this.get<PayrollRecord[]>(STORAGE_KEYS.PAYROLL_RECORDS, []);
-    return records.filter((r) => r.payroll_period_id === periodId);
+  public async approvePayrollPeriod(periodId: string): Promise<PayrollPeriod | null> {
+    const periods = this.get<PayrollPeriod[]>(STORAGE_KEYS.PAYROLL_PERIODS, []);
+    const p = periods.find((x) => x.id === periodId);
+    if (p) {
+      p.status = 'Approved';
+      p.approved_at = new Date().toISOString();
+      this.set(STORAGE_KEYS.PAYROLL_PERIODS, periods);
+      return p;
+    }
+    return null;
+  }
+
+  public async finalizePayrollPeriod(periodId: string): Promise<PayrollPeriod | null> {
+    const periods = this.get<PayrollPeriod[]>(STORAGE_KEYS.PAYROLL_PERIODS, []);
+    const p = periods.find((x) => x.id === periodId);
+    if (p) {
+      p.status = 'Finalized';
+      p.finalized_at = new Date().toISOString();
+      this.set(STORAGE_KEYS.PAYROLL_PERIODS, periods);
+      return p;
+    }
+    return null;
+  }
+
+  public async reopenPayrollPeriod(periodId: string, reason: string): Promise<PayrollPeriod | null> {
+    const periods = this.get<PayrollPeriod[]>(STORAGE_KEYS.PAYROLL_PERIODS, []);
+    const p = periods.find((x) => x.id === periodId);
+    if (p) {
+      p.status = 'Draft';
+      p.reopened_at = new Date().toISOString();
+      p.reopen_reason = reason;
+      this.set(STORAGE_KEYS.PAYROLL_PERIODS, periods);
+      return p;
+    }
+    return null;
   }
 
   public async addPayrollAdjustment(
-    periodId: string,
-    employeeId: string,
-    type: PayrollAdjustment['type'],
-    amount: number,
-    reason: string
+    periodIdOrObj: string | Omit<PayrollAdjustment, 'id' | 'created_at'>,
+    employeeId?: string,
+    type?: AdjustmentType,
+    amount?: number,
+    reason?: string
   ): Promise<PayrollAdjustment> {
-    const currentUser = await this.getCurrentUser();
-    const periods = await this.getPayrollPeriods();
-    const period = periods.find((p) => p.id === periodId);
-    if (!period) throw new Error('Payroll period not found');
-    if (period.status === 'Finalized') throw new Error('Cannot add adjustment to finalized payroll.');
-
     const adjustments = this.get<PayrollAdjustment[]>(STORAGE_KEYS.PAYROLL_ADJUSTMENTS, []);
-    const recordId = `payrec-${employeeId}-${period.year}-${period.month}`;
+    let newAdj: PayrollAdjustment;
 
-    const newAdj: PayrollAdjustment = {
-      id: `adj-${Date.now()}`,
-      payroll_record_id: recordId,
-      type,
-      amount,
-      reason,
-      created_by: currentUser.id,
-      created_at: new Date().toISOString(),
-    };
-
+    if (typeof periodIdOrObj === 'object') {
+      newAdj = {
+        ...periodIdOrObj,
+        id: `adj-${Date.now()}`,
+        created_at: new Date().toISOString(),
+      };
+    } else {
+      newAdj = {
+        id: `adj-${Date.now()}`,
+        payroll_record_id: `${periodIdOrObj}-${employeeId}`,
+        type: type || 'Bonus',
+        amount: amount || 0,
+        reason: reason || '',
+        created_at: new Date().toISOString(),
+      };
+    }
     adjustments.push(newAdj);
     this.set(STORAGE_KEYS.PAYROLL_ADJUSTMENTS, adjustments);
-
-    // Recalculate to incorporate new adjustment
-    await this.calculatePayrollForPeriod(period.year, period.month);
-
-    await this.addAuditLog({
-      action: 'ADD_PAYROLL_ADJUSTMENT',
-      entity_type: 'PAYROLL_ADJUSTMENT',
-      entity_id: newAdj.id,
-      new_values: newAdj,
-      description: `Added ${type} adjustment of ${formatINR(amount)} to employee ID ${employeeId} for period ${period.month}/${period.year}. Reason: ${reason}.`,
-    });
-
     return newAdj;
   }
 
-  public async approvePayrollPeriod(periodId: string): Promise<PayrollPeriod> {
-    const currentUser = await this.getCurrentUser();
-    const periods = await this.getPayrollPeriods();
-    const idx = periods.findIndex((p) => p.id === periodId);
-    if (idx === -1) throw new Error('Payroll period not found');
-    if (periods[idx].status === 'Finalized') throw new Error('Period is already finalized.');
-
-    periods[idx].status = 'Approved';
-    periods[idx].approved_at = new Date().toISOString();
-    periods[idx].approved_by = currentUser.id;
-    periods[idx].approved_by_name = currentUser.full_name;
-    periods[idx].updated_at = new Date().toISOString();
-    this.set(STORAGE_KEYS.PAYROLL_PERIODS, periods);
-
-    await this.addAuditLog({
-      action: 'APPROVE_PAYROLL',
-      entity_type: 'PAYROLL_PERIOD',
-      entity_id: periodId,
-      description: `Approved payroll period ${periods[idx].month}/${periods[idx].year}.`,
-    });
-
-    return periods[idx];
+  public resetDemoData(): void {
+    localStorage.clear();
+    this.isInitialized = false;
+    this.init();
   }
 
-  public async finalizePayrollPeriod(periodId: string): Promise<PayrollPeriod> {
-    const currentUser = await this.getCurrentUser();
-    const periods = await this.getPayrollPeriods();
-    const idx = periods.findIndex((p) => p.id === periodId);
-    if (idx === -1) throw new Error('Payroll period not found');
-    if (periods[idx].status !== 'Approved') throw new Error('Payroll must be Approved before Finalization.');
+  // Clients
+  public async getClients(status?: 'active' | 'inactive'): Promise<Client[]> {
+    let clients = this.get<Client[]>(STORAGE_KEYS.CLIENTS, INITIAL_CLIENTS);
+    if (status) clients = clients.filter((c) => c.status === status);
 
-    periods[idx].status = 'Finalized';
-    periods[idx].finalized_at = new Date().toISOString();
-    periods[idx].finalized_by = currentUser.id;
-    periods[idx].finalized_by_name = currentUser.full_name;
-    periods[idx].updated_at = new Date().toISOString();
-    this.set(STORAGE_KEYS.PAYROLL_PERIODS, periods);
+    const workEntries = await this.getDailyWorkEntries();
+    const payments = await this.getPayments();
 
-    await this.addAuditLog({
-      action: 'FINALIZE_PAYROLL',
-      entity_type: 'PAYROLL_PERIOD',
-      entity_id: periodId,
-      description: `Finalized and locked payroll period ${periods[idx].month}/${periods[idx].year}.`,
+    return clients.map((c) => {
+      const clientWork = workEntries.filter((w) => w.client_id === c.id);
+      const totalWorkBilled = clientWork.reduce((sum, w) => sum + (w.client_gross_amount || 0), 0);
+
+      const clientPayments = payments.filter((p) => p.account_id === c.id && p.status === 'Approved');
+      const totalPaid = clientPayments
+        .filter((p) => p.payment_direction === 'Inward')
+        .reduce((sum, p) => sum + p.amount, 0);
+      const totalAdvance = clientPayments
+        .filter((p) => p.payment_category === 'Client advance')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      const currentDue = c.opening_balance + totalWorkBilled - totalPaid;
+      const lastPayment = clientPayments
+        .filter((p) => p.payment_direction === 'Inward')
+        .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0];
+
+      return {
+        ...c,
+        total_billed: totalWorkBilled,
+        total_paid: totalPaid,
+        total_advance: totalAdvance,
+        current_due: currentDue,
+        last_payment_date: lastPayment ? lastPayment.payment_date : undefined,
+      };
     });
-
-    return periods[idx];
   }
 
-  public async reopenPayrollPeriod(periodId: string, reason: string): Promise<PayrollPeriod> {
-    const currentUser = await this.getCurrentUser();
-    const periods = await this.getPayrollPeriods();
-    const idx = periods.findIndex((p) => p.id === periodId);
-    if (idx === -1) throw new Error('Payroll period not found');
-    if (periods[idx].status !== 'Finalized') throw new Error('Only finalized periods can be reopened.');
-
-    periods[idx].status = 'Under Review';
-    periods[idx].reopened_at = new Date().toISOString();
-    periods[idx].reopened_by = currentUser.id;
-    periods[idx].reopen_reason = reason;
-    periods[idx].updated_at = new Date().toISOString();
-    this.set(STORAGE_KEYS.PAYROLL_PERIODS, periods);
-
-    await this.addAuditLog({
-      action: 'REOPEN_PAYROLL',
-      entity_type: 'PAYROLL_PERIOD',
-      entity_id: periodId,
-      description: `Reopened finalized payroll period ${periods[idx].month}/${periods[idx].year}. Reason: ${reason}.`,
-    });
-
-    return periods[idx];
+  public async getClientById(id: string): Promise<Client | undefined> {
+    const clients = await this.getClients();
+    return clients.find((c) => c.id === id);
   }
 
-  // Audit Logs
+  public async createClient(clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<Client> {
+    const clients = this.get<Client[]>(STORAGE_KEYS.CLIENTS, INITIAL_CLIENTS);
+    const newClient: Client = {
+      ...clientData,
+      id: `client-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    clients.push(newClient);
+    this.set(STORAGE_KEYS.CLIENTS, clients);
+
+    if (newClient.opening_balance > 0) {
+      await this.recordLedgerEntry({
+        entry_date: new Date().toISOString().split('T')[0],
+        account_type: 'Client',
+        account_id: newClient.id,
+        account_name: newClient.company_name || newClient.client_name,
+        transaction_type: 'Opening Balance',
+        description: `Opening receivable balance: ₹${newClient.opening_balance}`,
+        direction: 'Outward',
+        debit: newClient.opening_balance,
+        credit: 0,
+        running_balance: newClient.opening_balance,
+      });
+    }
+    return newClient;
+  }
+
+  public async updateClient(client: Client): Promise<Client> {
+    const clients = this.get<Client[]>(STORAGE_KEYS.CLIENTS, INITIAL_CLIENTS);
+    const idx = clients.findIndex((c) => c.id === client.id);
+    if (idx !== -1) {
+      clients[idx] = { ...client, updated_at: new Date().toISOString() };
+      this.set(STORAGE_KEYS.CLIENTS, clients);
+    }
+    return client;
+  }
+
+  // Vendors
+  public async getVendors(status?: 'active' | 'inactive'): Promise<Vendor[]> {
+    let vendors = this.get<Vendor[]>(STORAGE_KEYS.VENDORS, INITIAL_VENDORS);
+    if (status) vendors = vendors.filter((v) => v.status === status);
+
+    const purchaseBills = await this.getPurchaseBills();
+    const payments = await this.getPayments();
+
+    return vendors.map((v) => {
+      const vendorBills = purchaseBills.filter((pb) => pb.vendor_id === v.id && pb.status !== 'cancelled');
+      const totalPurchases = vendorBills.reduce((sum, b) => sum + b.total_amount, 0);
+
+      const vendorPayments = payments.filter((p) => p.account_id === v.id && p.status === 'Approved');
+      const totalPaymentsMade = vendorPayments
+        .filter((p) => p.payment_direction === 'Outward')
+        .reduce((sum, p) => sum + p.amount, 0);
+      const totalAdvances = vendorPayments
+        .filter((p) => p.payment_category === 'Vendor advance')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      const currentBalance = v.opening_balance + totalPurchases - totalPaymentsMade;
+      const balanceType = currentBalance > 0 ? 'payable' : currentBalance < 0 ? 'receivable' : 'settled';
+
+      const lastPayment = vendorPayments
+        .filter((p) => p.payment_direction === 'Outward')
+        .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0];
+
+      return {
+        ...v,
+        total_purchases: totalPurchases,
+        total_payments_made: totalPaymentsMade,
+        total_advances: totalAdvances,
+        current_balance: currentBalance,
+        balance_type: balanceType,
+        last_payment_date: lastPayment ? lastPayment.payment_date : undefined,
+      };
+    });
+  }
+
+  public async getVendorById(id: string): Promise<Vendor | undefined> {
+    const vendors = await this.getVendors();
+    return vendors.find((v) => v.id === id);
+  }
+
+  public async createVendor(vendorData: Omit<Vendor, 'id' | 'created_at' | 'updated_at'>): Promise<Vendor> {
+    const vendors = this.get<Vendor[]>(STORAGE_KEYS.VENDORS, INITIAL_VENDORS);
+    const newVendor: Vendor = {
+      ...vendorData,
+      id: `vendor-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    vendors.push(newVendor);
+    this.set(STORAGE_KEYS.VENDORS, vendors);
+
+    if (newVendor.opening_balance > 0) {
+      await this.recordLedgerEntry({
+        entry_date: new Date().toISOString().split('T')[0],
+        account_type: 'Vendor',
+        account_id: newVendor.id,
+        account_name: newVendor.company_name || newVendor.vendor_name,
+        transaction_type: 'Opening Balance',
+        description: `Opening payable balance: ₹${newVendor.opening_balance}`,
+        direction: 'Inward',
+        debit: 0,
+        credit: newVendor.opening_balance,
+        running_balance: newVendor.opening_balance,
+      });
+    }
+    return newVendor;
+  }
+
+  public async updateVendor(vendor: Vendor): Promise<Vendor> {
+    const vendors = this.get<Vendor[]>(STORAGE_KEYS.VENDORS, INITIAL_VENDORS);
+    const idx = vendors.findIndex((v) => v.id === vendor.id);
+    if (idx !== -1) {
+      vendors[idx] = { ...vendor, updated_at: new Date().toISOString() };
+      this.set(STORAGE_KEYS.VENDORS, vendors);
+    }
+    return vendor;
+  }
+
+  // Machines
+  public async getMachines(): Promise<Machine[]> {
+    const machines = this.get<Machine[]>(STORAGE_KEYS.MACHINES, []);
+    const sites = this.get<Site[]>(STORAGE_KEYS.SITES, INITIAL_SITES);
+    return machines.map((m) => ({
+      ...m,
+      site_name: sites.find((s) => s.id === m.site_id)?.site_name || 'Unassigned',
+    }));
+  }
+
+  // Daily Work Entries
+  public async getDailyWorkEntries(filters?: {
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+    workerId?: string;
+    siteId?: string;
+    clientId?: string;
+    settlementStatus?: string;
+  }): Promise<DailyWorkEntry[]> {
+    let entries = this.get<DailyWorkEntry[]>(STORAGE_KEYS.DAILY_WORK_ENTRIES, []);
+    const employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+    const sites = this.get<Site[]>(STORAGE_KEYS.SITES, INITIAL_SITES);
+    const clients = this.get<Client[]>(STORAGE_KEYS.CLIENTS, INITIAL_CLIENTS);
+
+    if (filters) {
+      if (filters.date) entries = entries.filter((e) => e.work_date === filters.date);
+      if (filters.startDate) entries = entries.filter((e) => e.work_date >= filters.startDate!);
+      if (filters.endDate) entries = entries.filter((e) => e.work_date <= filters.endDate!);
+      if (filters.workerId) entries = entries.filter((e) => e.worker_id === filters.workerId);
+      if (filters.siteId) entries = entries.filter((e) => e.site_id === filters.siteId);
+      if (filters.clientId) entries = entries.filter((e) => e.client_id === filters.clientId);
+      if (filters.settlementStatus) entries = entries.filter((e) => e.settlement_status === filters.settlementStatus);
+    }
+
+    return entries
+      .map((entry) => {
+        const emp = employees.find((e) => e.id === entry.worker_id);
+        const site = sites.find((s) => s.id === entry.site_id);
+        const client = clients.find((c) => c.id === entry.client_id);
+        return {
+          ...entry,
+          worker_name: emp ? emp.full_name : 'Unknown Worker',
+          worker_code: emp ? emp.employee_code : '',
+          worker_type: emp ? emp.worker_type : '',
+          site_name: site ? site.site_name : 'Unknown Site',
+          client_name: client ? client.company_name : entry.client_name,
+        };
+      })
+      .sort((a, b) => new Date(b.work_date).getTime() - new Date(a.work_date).getTime());
+  }
+
+  public async createDailyWorkEntry(
+    entryData: Omit<DailyWorkEntry, 'id' | 'created_at' | 'updated_at'>
+  ): Promise<DailyWorkEntry> {
+    const entries = this.get<DailyWorkEntry[]>(STORAGE_KEYS.DAILY_WORK_ENTRIES, []);
+
+    const gross_amount = entryData.quantity * entryData.rate_per_unit;
+    const diesel_amount = entryData.diesel_litres * entryData.diesel_rate;
+    const client_rate = entryData.client_rate_per_unit || 0;
+    const client_gross_amount = entryData.quantity * client_rate;
+    const company_diesel_cost = entryData.diesel_supplied_by === 'Company' ? diesel_amount : 0;
+    const other_deductions = entryData.other_deductions || 0;
+    const cash_advance = entryData.cash_advance || 0;
+
+    const net_payable = gross_amount - company_diesel_cost - cash_advance - other_deductions;
+    const estimated_margin = client_gross_amount - gross_amount - company_diesel_cost;
+
+    const newEntry: DailyWorkEntry = {
+      ...entryData,
+      gross_amount,
+      diesel_amount,
+      client_gross_amount,
+      estimated_margin,
+      net_payable,
+      id: `work-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      settlement_status: 'unsettled',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    entries.unshift(newEntry);
+    this.set(STORAGE_KEYS.DAILY_WORK_ENTRIES, entries);
+
+    const employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+    const worker = employees.find((e) => e.id === newEntry.worker_id);
+    const workerName = worker ? worker.full_name : 'Worker';
+
+    await this.recordLedgerEntry({
+      entry_date: newEntry.work_date,
+      account_type: 'Worker',
+      account_id: newEntry.worker_id,
+      account_name: workerName,
+      transaction_type: 'Daily Work Completed',
+      description: `${newEntry.work_category}: ${newEntry.quantity} ${newEntry.measurement_unit} @ ₹${newEntry.rate_per_unit}`,
+      direction: 'Inward',
+      debit: 0,
+      credit: net_payable,
+      running_balance: net_payable,
+      site_id: newEntry.site_id,
+      linked_entity_type: 'work',
+      linked_entity_id: newEntry.id,
+    });
+
+    return newEntry;
+  }
+
+  public async createBatchDailyWorkEntries(
+    entriesData: Omit<DailyWorkEntry, 'id' | 'created_at' | 'updated_at'>[]
+  ): Promise<DailyWorkEntry[]> {
+    const created: DailyWorkEntry[] = [];
+    for (const item of entriesData) {
+      const res = await this.createDailyWorkEntry(item);
+      created.push(res);
+    }
+    return created;
+  }
+
+  public async deleteDailyWorkEntry(id: string): Promise<void> {
+    let entries = this.get<DailyWorkEntry[]>(STORAGE_KEYS.DAILY_WORK_ENTRIES, []);
+    entries = entries.filter((e) => e.id !== id);
+    this.set(STORAGE_KEYS.DAILY_WORK_ENTRIES, entries);
+  }
+
+  // Advances
+  public async getAdvances(filters?: {
+    accountType?: AccountType;
+    accountId?: string;
+    status?: string;
+    advanceType?: string;
+  }): Promise<Advance[]> {
+    let advances = this.get<Advance[]>(STORAGE_KEYS.ADVANCES, []);
+    const employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+    const vendors = this.get<Vendor[]>(STORAGE_KEYS.VENDORS, INITIAL_VENDORS);
+    const clients = this.get<Client[]>(STORAGE_KEYS.CLIENTS, INITIAL_CLIENTS);
+
+    if (filters) {
+      if (filters.accountType) advances = advances.filter((a) => a.account_type === filters.accountType);
+      if (filters.accountId) advances = advances.filter((a) => a.account_id === filters.accountId);
+      if (filters.status) advances = advances.filter((a) => a.status === filters.status);
+      if (filters.advanceType) advances = advances.filter((a) => a.advance_type === filters.advanceType);
+    }
+
+    return advances
+      .map((adv) => {
+        let name = adv.account_name;
+        if (!name) {
+          if (adv.account_type === 'Worker') {
+            name = employees.find((x) => x.id === adv.account_id)?.full_name || 'Worker';
+          } else if (adv.account_type === 'Vendor') {
+            name = vendors.find((x) => x.id === adv.account_id)?.company_name || 'Vendor';
+          } else if (adv.account_type === 'Client') {
+            name = clients.find((x) => x.id === adv.account_id)?.company_name || 'Client';
+          }
+        }
+        return {
+          ...adv,
+          account_name: name,
+          remaining_amount: adv.amount - (adv.recovered_amount || 0),
+        };
+      })
+      .sort((a, b) => new Date(b.advance_date).getTime() - new Date(a.advance_date).getTime());
+  }
+
+  public async createAdvance(
+    data: Omit<Advance, 'id' | 'recovered_amount' | 'remaining_amount' | 'created_at' | 'updated_at'>
+  ): Promise<Advance> {
+    const advances = this.get<Advance[]>(STORAGE_KEYS.ADVANCES, []);
+    const newAdv: Advance = {
+      ...data,
+      id: `adv-${Date.now()}`,
+      recovered_amount: 0,
+      remaining_amount: data.amount,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    advances.unshift(newAdv);
+    this.set(STORAGE_KEYS.ADVANCES, advances);
+
+    await this.createPayment({
+      payment_date: newAdv.advance_date,
+      account_type: newAdv.account_type,
+      account_id: newAdv.account_id,
+      account_name: newAdv.account_name || 'Account',
+      payment_direction: 'Outward',
+      payment_category: newAdv.advance_type === 'Diesel advance' ? 'Diesel advance' : 'Cash advance',
+      amount: newAdv.amount,
+      payment_mode: newAdv.payment_mode,
+      reference_number: `ADV-${newAdv.id}`,
+      description: `Advance issued: ${newAdv.reason}`,
+      site_id: newAdv.site_id,
+      status: 'Approved',
+    });
+
+    return newAdv;
+  }
+
+  public async recoverAdvance(advanceId: string, recoveryAmount: number): Promise<void> {
+    const advances = this.get<Advance[]>(STORAGE_KEYS.ADVANCES, []);
+    const idx = advances.findIndex((a) => a.id === advanceId);
+    if (idx !== -1) {
+      const adv = advances[idx];
+      const newRecovered = (adv.recovered_amount || 0) + recoveryAmount;
+      const remaining = adv.amount - newRecovered;
+      adv.recovered_amount = newRecovered;
+      adv.remaining_amount = Math.max(0, remaining);
+      adv.status = remaining <= 0 ? 'Fully recovered' : 'Partially recovered';
+      adv.updated_at = new Date().toISOString();
+      this.set(STORAGE_KEYS.ADVANCES, advances);
+    }
+  }
+
+  // Materials & Purchases
+  public async getMaterials(): Promise<Material[]> {
+    const materials = this.get<Material[]>(STORAGE_KEYS.MATERIALS, []);
+    const vendors = this.get<Vendor[]>(STORAGE_KEYS.VENDORS, INITIAL_VENDORS);
+    return materials.map((m) => ({
+      ...m,
+      supplier_name: vendors.find((v) => v.id === m.supplier_id)?.company_name || m.supplier_name,
+    }));
+  }
+
+  public async createMaterial(data: Omit<Material, 'id' | 'created_at' | 'updated_at'>): Promise<Material> {
+    const materials = this.get<Material[]>(STORAGE_KEYS.MATERIALS, []);
+    const newMat: Material = {
+      ...data,
+      id: `mat-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    materials.push(newMat);
+    this.set(STORAGE_KEYS.MATERIALS, materials);
+    return newMat;
+  }
+
+  public async updateMaterial(material: Material): Promise<Material> {
+    const materials = this.get<Material[]>(STORAGE_KEYS.MATERIALS, []);
+    const idx = materials.findIndex((m) => m.id === material.id);
+    if (idx !== -1) {
+      materials[idx] = { ...material, updated_at: new Date().toISOString() };
+      this.set(STORAGE_KEYS.MATERIALS, materials);
+    }
+    return material;
+  }
+
+  public async getPurchaseBills(vendorId?: string): Promise<PurchaseBill[]> {
+    let bills = this.get<PurchaseBill[]>(STORAGE_KEYS.PURCHASE_BILLS, []);
+    const vendors = this.get<Vendor[]>(STORAGE_KEYS.VENDORS, INITIAL_VENDORS);
+
+    if (vendorId) bills = bills.filter((b) => b.vendor_id === vendorId);
+
+    return bills
+      .map((b) => ({
+        ...b,
+        vendor_name: vendors.find((v) => v.id === b.vendor_id)?.company_name || b.vendor_name,
+      }))
+      .sort((a, b) => new Date(b.bill_date).getTime() - new Date(a.bill_date).getTime());
+  }
+
+  public async createPurchaseBill(
+    billData: Omit<PurchaseBill, 'id' | 'created_at' | 'updated_at'>
+  ): Promise<PurchaseBill> {
+    const bills = this.get<PurchaseBill[]>(STORAGE_KEYS.PURCHASE_BILLS, []);
+    const materials = this.get<Material[]>(STORAGE_KEYS.MATERIALS, []);
+
+    const newBill: PurchaseBill = {
+      ...billData,
+      id: `pb-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    bills.unshift(newBill);
+    this.set(STORAGE_KEYS.PURCHASE_BILLS, bills);
+
+    newBill.items.forEach((item) => {
+      const matIdx = materials.findIndex((m) => m.id === item.material_id);
+      if (matIdx !== -1) materials[matIdx].current_stock += item.quantity;
+    });
+    this.set(STORAGE_KEYS.MATERIALS, materials);
+
+    const vendors = await this.getVendors();
+    const vendor = vendors.find((v) => v.id === newBill.vendor_id);
+    const vendorName = vendor ? vendor.company_name : 'Vendor';
+
+    await this.recordLedgerEntry({
+      entry_date: newBill.bill_date,
+      account_type: 'Vendor',
+      account_id: newBill.vendor_id,
+      account_name: vendorName,
+      transaction_type: 'Purchase Bill Received',
+      reference_no: newBill.bill_number,
+      description: `Bill #${newBill.bill_number} for material items (Total: ₹${newBill.total_amount})`,
+      direction: 'Inward',
+      debit: 0,
+      credit: newBill.total_amount,
+      running_balance: newBill.total_amount,
+    });
+
+    if (newBill.amount_paid > 0) {
+      await this.createPayment({
+        payment_date: newBill.bill_date,
+        account_type: 'Vendor',
+        account_id: newBill.vendor_id,
+        account_name: vendorName,
+        payment_direction: 'Outward',
+        payment_category: 'Material payment',
+        amount: newBill.amount_paid,
+        payment_mode: newBill.payment_mode || 'Bank Transfer',
+        reference_number: `BILL-${newBill.bill_number}`,
+        description: `Payment towards bill #${newBill.bill_number}`,
+        linked_bill_id: newBill.id,
+        status: 'Approved',
+      });
+    }
+
+    return newBill;
+  }
+
+  // Payments
+  public async getPayments(filters?: {
+    accountType?: AccountType;
+    accountId?: string;
+    direction?: PaymentDirection;
+    category?: PaymentCategory;
+    mode?: PaymentMode;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+  }): Promise<Payment[]> {
+    let payments = this.get<Payment[]>(STORAGE_KEYS.PAYMENTS, []);
+
+    if (filters) {
+      if (filters.accountType) payments = payments.filter((p) => p.account_type === filters.accountType);
+      if (filters.accountId) payments = payments.filter((p) => p.account_id === filters.accountId);
+      if (filters.direction) payments = payments.filter((p) => p.payment_direction === filters.direction);
+      if (filters.category) payments = payments.filter((p) => p.payment_category === filters.category);
+      if (filters.mode) payments = payments.filter((p) => p.payment_mode === filters.mode);
+      if (filters.startDate) payments = payments.filter((p) => p.payment_date >= filters.startDate!);
+      if (filters.endDate) payments = payments.filter((p) => p.payment_date <= filters.endDate!);
+      if (filters.status) payments = payments.filter((p) => p.status === filters.status);
+    }
+
+    return payments.sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime());
+  }
+
+  public async getPaymentById(id: string): Promise<Payment | undefined> {
+    const payments = await this.getPayments();
+    return payments.find((p) => p.id === id || p.transaction_id === id);
+  }
+
+  public async createPayment(
+    data: Omit<Payment, 'id' | 'transaction_id' | 'created_at' | 'updated_at'>
+  ): Promise<Payment> {
+    const payments = this.get<Payment[]>(STORAGE_KEYS.PAYMENTS, []);
+    const txnNum = String(payments.length + 1).padStart(4, '0');
+    const transaction_id = `TXN-${new Date().getFullYear()}-${txnNum}`;
+
+    const newPayment: Payment = {
+      ...data,
+      id: `pay-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      transaction_id,
+      status: data.status || 'Approved',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    payments.unshift(newPayment);
+    this.set(STORAGE_KEYS.PAYMENTS, payments);
+
+    const isOutward = newPayment.payment_direction === 'Outward';
+    await this.recordLedgerEntry({
+      entry_date: newPayment.payment_date,
+      account_type: newPayment.account_type,
+      account_id: newPayment.account_id,
+      account_name: newPayment.account_name,
+      transaction_type: newPayment.payment_category,
+      reference_no: newPayment.transaction_id,
+      description: `${newPayment.description} via ${newPayment.payment_mode}`,
+      direction: newPayment.payment_direction,
+      debit: isOutward ? newPayment.amount : 0,
+      credit: !isOutward ? newPayment.amount : 0,
+      running_balance: 0,
+      site_id: newPayment.site_id,
+      linked_entity_type: 'payment',
+      linked_entity_id: newPayment.id,
+    });
+
+    return newPayment;
+  }
+
+  public async cancelPayment(paymentId: string, reason: string, cancelledBy?: string): Promise<void> {
+    const payments = this.get<Payment[]>(STORAGE_KEYS.PAYMENTS, []);
+    const idx = payments.findIndex((p) => p.id === paymentId);
+    if (idx !== -1) {
+      const payment = payments[idx];
+      payment.status = 'Cancelled';
+      payment.cancellation_reason = reason;
+      payment.cancelled_at = new Date().toISOString();
+      payment.cancelled_by = cancelledBy;
+      payment.updated_at = new Date().toISOString();
+      this.set(STORAGE_KEYS.PAYMENTS, payments);
+
+      const isOutward = payment.payment_direction === 'Outward';
+      await this.recordLedgerEntry({
+        entry_date: new Date().toISOString().split('T')[0],
+        account_type: payment.account_type,
+        account_id: payment.account_id,
+        account_name: payment.account_name,
+        transaction_type: 'Payment Reversal / Cancellation',
+        reference_no: `REV-${payment.transaction_id}`,
+        description: `Reversal of ${payment.transaction_id}: ${reason}`,
+        direction: isOutward ? 'Inward' : 'Outward',
+        debit: !isOutward ? payment.amount : 0,
+        credit: isOutward ? payment.amount : 0,
+        running_balance: 0,
+      });
+    }
+  }
+
+  // Settlements
+  public async getSettlements(workerId?: string): Promise<Settlement[]> {
+    let settlements = this.get<Settlement[]>(STORAGE_KEYS.SETTLEMENTS, []);
+    const employees = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+
+    if (workerId) settlements = settlements.filter((s) => s.worker_id === workerId);
+
+    return settlements
+      .map((s) => {
+        const emp = employees.find((e) => e.id === s.worker_id);
+        return {
+          ...s,
+          worker_name: emp ? emp.full_name : s.worker_name,
+          worker_code: emp ? emp.employee_code : s.worker_code,
+        };
+      })
+      .sort((a, b) => new Date(b.settlement_date).getTime() - new Date(a.settlement_date).getTime());
+  }
+
+  public async createSettlement(
+    data: Omit<Settlement, 'id' | 'settlement_code' | 'created_at'>
+  ): Promise<Settlement> {
+    const settlements = this.get<Settlement[]>(STORAGE_KEYS.SETTLEMENTS, []);
+    const count = settlements.length + 1;
+    const settlement_code = `STL-${new Date().getFullYear()}-${String(count).padStart(4, '0')}`;
+
+    const newSettlement: Settlement = {
+      ...data,
+      id: `stl-${Date.now()}`,
+      settlement_code,
+      created_at: new Date().toISOString(),
+    };
+
+    settlements.unshift(newSettlement);
+    this.set(STORAGE_KEYS.SETTLEMENTS, settlements);
+
+    const dailyEntries = this.get<DailyWorkEntry[]>(STORAGE_KEYS.DAILY_WORK_ENTRIES, []);
+    dailyEntries.forEach((entry) => {
+      if (
+        entry.worker_id === newSettlement.worker_id &&
+        entry.work_date >= newSettlement.from_date &&
+        entry.work_date <= newSettlement.to_date
+      ) {
+        entry.settlement_status = 'settled';
+        entry.settlement_id = newSettlement.id;
+      }
+    });
+    this.set(STORAGE_KEYS.DAILY_WORK_ENTRIES, dailyEntries);
+
+    if (newSettlement.amount_paid_now > 0) {
+      await this.createPayment({
+        payment_date: newSettlement.settlement_date,
+        account_type: 'Worker',
+        account_id: newSettlement.worker_id,
+        account_name: newSettlement.worker_name || 'Worker',
+        payment_direction: 'Outward',
+        payment_category: 'Worker salary',
+        amount: newSettlement.amount_paid_now,
+        payment_mode: newSettlement.payment_mode || 'Cash',
+        reference_number: settlement_code,
+        description: `Worker settlement ${settlement_code} (${newSettlement.from_date} to ${newSettlement.to_date})`,
+        site_id: newSettlement.site_id,
+        status: 'Approved',
+      });
+    }
+
+    return newSettlement;
+  }
+
+  // Ledger Entries
+  public async getLedgerEntries(
+    accountType?: AccountType,
+    accountId?: string,
+    filters?: { startDate?: string; endDate?: string }
+  ): Promise<LedgerEntry[]> {
+    let entries = this.get<LedgerEntry[]>(STORAGE_KEYS.LEDGER_ENTRIES, []);
+
+    if (accountType) entries = entries.filter((e) => e.account_type === accountType);
+    if (accountId) entries = entries.filter((e) => e.account_id === accountId);
+    if (filters?.startDate) entries = entries.filter((e) => e.entry_date >= filters.startDate!);
+    if (filters?.endDate) entries = entries.filter((e) => e.entry_date <= filters.endDate!);
+
+    return entries.sort((a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime());
+  }
+
+  public async recordLedgerEntry(data: Omit<LedgerEntry, 'id' | 'status' | 'created_at'>): Promise<LedgerEntry> {
+    const entries = this.get<LedgerEntry[]>(STORAGE_KEYS.LEDGER_ENTRIES, []);
+    const newEntry: LedgerEntry = {
+      ...data,
+      id: `led-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      status: 'active',
+      created_at: new Date().toISOString(),
+    };
+    entries.push(newEntry);
+    this.set(STORAGE_KEYS.LEDGER_ENTRIES, entries);
+    return newEntry;
+  }
+
+  // Dashboard Summary
+  public async getAccountsDashboardSummary(filter?: DashboardFilter): Promise<AccountsDashboardSummary> {
+    const clients = await this.getClients();
+    const vendors = await this.getVendors();
+    const workEntries = await this.getDailyWorkEntries();
+    const payments = await this.getPayments();
+    const advances = await this.getAdvances();
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const currentMonthStr = todayStr.substring(0, 7);
+
+    let filteredPayments = payments.filter((p) => p.status === 'Approved');
+    let filteredWork = workEntries;
+
+    if (filter) {
+      if (filter.startDate) {
+        filteredPayments = filteredPayments.filter((p) => p.payment_date >= filter.startDate!);
+        filteredWork = filteredWork.filter((w) => w.work_date >= filter.startDate!);
+      }
+      if (filter.endDate) {
+        filteredPayments = filteredPayments.filter((p) => p.payment_date <= filter.endDate!);
+        filteredWork = filteredWork.filter((w) => w.work_date <= filter.endDate!);
+      }
+      if (filter.siteId) {
+        filteredPayments = filteredPayments.filter((p) => p.site_id === filter.siteId);
+        filteredWork = filteredWork.filter((w) => w.site_id === filter.siteId);
+      }
+      if (filter.clientId) {
+        filteredPayments = filteredPayments.filter((p) => p.account_id === filter.clientId);
+        filteredWork = filteredWork.filter((w) => w.client_id === filter.clientId);
+      }
+      if (filter.vendorId) {
+        filteredPayments = filteredPayments.filter((p) => p.account_id === filter.vendorId);
+      }
+      if (filter.workerId) {
+        filteredPayments = filteredPayments.filter((p) => p.account_id === filter.workerId);
+        filteredWork = filteredWork.filter((w) => w.worker_id === filter.workerId);
+      }
+    }
+
+    const totalClientReceivables = clients.reduce((sum, c) => sum + Math.max(0, c.current_due || 0), 0);
+    const totalVendorPayables = vendors.reduce(
+      (sum, v) => sum + (v.balance_type === 'payable' ? v.current_balance || 0 : 0),
+      0
+    );
+
+    const totalWorkerEarnings = filteredWork.reduce((sum, w) => sum + w.gross_amount, 0);
+    const totalCashAdvances = advances
+      .filter((a) => a.advance_type === 'Cash advance' && a.status !== 'Cancelled')
+      .reduce((sum, a) => sum + a.amount, 0);
+    const totalDieselAdvances = advances
+      .filter((a) => a.advance_type === 'Diesel advance' && a.status !== 'Cancelled')
+      .reduce((sum, a) => sum + a.amount, 0);
+
+    const totalPaymentsReceived = filteredPayments
+      .filter((p) => p.payment_direction === 'Inward')
+      .reduce((sum, p) => sum + p.amount, 0);
+    const totalPaymentsMade = filteredPayments
+      .filter((p) => p.payment_direction === 'Outward')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const totalOutstandingBalance = totalClientReceivables - totalVendorPayables;
+
+    const todayWorkEntries = workEntries.filter((w) => w.work_date === todayStr);
+    const todayWorkValue = todayWorkEntries.reduce((sum, w) => sum + w.gross_amount, 0);
+    const todayFeetCompleted = todayWorkEntries
+      .filter((w) => w.measurement_unit === 'Feet')
+      .reduce((sum, w) => sum + w.quantity, 0);
+
+    const monthPayments = payments.filter(
+      (p) => p.status === 'Approved' && p.payment_date.startsWith(currentMonthStr)
+    );
+    const thisMonthIncome = monthPayments
+      .filter((p) => p.payment_direction === 'Inward')
+      .reduce((sum, p) => sum + p.amount, 0);
+    const thisMonthExpenses = monthPayments
+      .filter((p) => p.payment_direction === 'Outward')
+      .reduce((sum, p) => sum + p.amount, 0);
+    const thisMonthNetMargin = thisMonthIncome - thisMonthExpenses;
+
+    const overdueClientsCount = clients.filter((c) => (c.current_due || 0) > 0).length;
+    const overdueVendorsCount = vendors.filter((v) => (v.current_balance || 0) > 0).length;
+    const unsettledWorkersCount = workEntries.filter((w) => w.settlement_status === 'unsettled').length;
+
+    return {
+      totalClientReceivables,
+      totalVendorPayables,
+      totalWorkerEarnings,
+      totalCashAdvances,
+      totalDieselAdvances,
+      totalPaymentsReceived,
+      totalPaymentsMade,
+      totalOutstandingBalance,
+      todayWorkValue,
+      todayFeetCompleted,
+      thisMonthIncome,
+      thisMonthExpenses,
+      thisMonthNetMargin,
+      overdueClientsCount,
+      overdueVendorsCount,
+      unsettledWorkersCount,
+    };
+  }
+
+  // Global Search
+  public async globalSearch(query: string): Promise<{
+    clients: Client[];
+    vendors: Vendor[];
+    employees: Employee[];
+    payments: Payment[];
+    purchaseBills: PurchaseBill[];
+    materials: Material[];
+    sites: Site[];
+  }> {
+    const q = query.toLowerCase().trim();
+    if (!q) {
+      return { clients: [], vendors: [], employees: [], payments: [], purchaseBills: [], materials: [], sites: [] };
+    }
+
+    const [clients, vendors, employees, payments, purchaseBills, materials, sites] = await Promise.all([
+      this.getClients(),
+      this.getVendors(),
+      this.getEmployees(),
+      this.getPayments(),
+      this.getPurchaseBills(),
+      this.getMaterials(),
+      this.getSites(),
+    ]);
+
+    return {
+      clients: clients.filter(
+        (c) =>
+          c.client_name.toLowerCase().includes(q) ||
+          c.company_name.toLowerCase().includes(q) ||
+          c.phone.includes(q)
+      ),
+      vendors: vendors.filter(
+        (v) =>
+          v.vendor_name.toLowerCase().includes(q) ||
+          v.company_name.toLowerCase().includes(q) ||
+          v.vendor_category.toLowerCase().includes(q) ||
+          v.phone.includes(q)
+      ),
+      employees: employees.filter(
+        (e) =>
+          e.full_name.toLowerCase().includes(q) ||
+          e.employee_code.toLowerCase().includes(q) ||
+          e.worker_type.toLowerCase().includes(q) ||
+          (e.phone && e.phone.includes(q))
+      ),
+      payments: payments.filter(
+        (p) =>
+          p.transaction_id.toLowerCase().includes(q) ||
+          p.account_name.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q)
+      ),
+      purchaseBills: purchaseBills.filter(
+        (b) =>
+          b.bill_number.toLowerCase().includes(q) ||
+          (b.vendor_name && b.vendor_name.toLowerCase().includes(q))
+      ),
+      materials: materials.filter(
+        (m) => m.material_name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)
+      ),
+      sites: sites.filter(
+        (s) => s.site_name.toLowerCase().includes(q) || s.site_code.toLowerCase().includes(q)
+      ),
+    };
+  }
+
+  // Notifications
+  public async getNotifications(): Promise<AppNotification[]> {
+    return this.get<AppNotification[]>(STORAGE_KEYS.NOTIFICATIONS, []);
+  }
+
+  public async markNotificationAsRead(id: string): Promise<void> {
+    const notifs = this.get<AppNotification[]>(STORAGE_KEYS.NOTIFICATIONS, []);
+    const idx = notifs.findIndex((n) => n.id === id);
+    if (idx !== -1) {
+      notifs[idx].is_read = true;
+      this.set(STORAGE_KEYS.NOTIFICATIONS, notifs);
+    }
+  }
+
+  // Audit Logs & Settings
   public async getAuditLogs(): Promise<AuditLog[]> {
     return this.get<AuditLog[]>(STORAGE_KEYS.AUDIT_LOGS, []);
   }
 
-  public async addAuditLog(logData: {
-    user_id?: string;
-    user_name?: string;
-    user_role?: UserRole;
-    action: string;
-    entity_type: string;
-    entity_id?: string;
-    old_values?: any;
-    new_values?: any;
-    description: string;
-  }): Promise<AuditLog> {
+  public async addAuditLog(logData: Omit<AuditLog, 'id' | 'created_at' | 'ip_address'>): Promise<AuditLog> {
     const currentUser = await this.getCurrentUser().catch(() => INITIAL_PROFILES[0]);
     const logs = this.get<AuditLog[]>(STORAGE_KEYS.AUDIT_LOGS, []);
 
@@ -991,30 +1703,23 @@ class DatabaseService {
       old_values: logData.old_values,
       new_values: logData.new_values,
       description: logData.description,
+      reason: logData.reason,
       ip_address: '127.0.0.1',
       created_at: new Date().toISOString(),
     };
 
     logs.unshift(newLog);
-    // Keep last 500 logs
     if (logs.length > 500) logs.pop();
     this.set(STORAGE_KEYS.AUDIT_LOGS, logs);
     return newLog;
   }
 
-  // Settings
   public async getCompanySettings(): Promise<CompanySettings> {
     return this.get<CompanySettings>(STORAGE_KEYS.COMPANY_SETTINGS, INITIAL_COMPANY_SETTINGS);
   }
 
   public async saveCompanySettings(settings: CompanySettings): Promise<void> {
     this.set(STORAGE_KEYS.COMPANY_SETTINGS, settings);
-    await this.addAuditLog({
-      action: 'UPDATE_COMPANY_SETTINGS',
-      entity_type: 'SETTINGS',
-      new_values: settings,
-      description: `Updated company profile details for ${settings.company_name}.`,
-    });
   }
 
   public async getPayrollRules(): Promise<PayrollRuleSettings> {
@@ -1023,22 +1728,6 @@ class DatabaseService {
 
   public async savePayrollRules(rules: PayrollRuleSettings): Promise<void> {
     this.set(STORAGE_KEYS.PAYROLL_RULES, rules);
-    await this.addAuditLog({
-      action: 'UPDATE_PAYROLL_RULES',
-      entity_type: 'SETTINGS',
-      new_values: rules,
-      description: 'Updated system payroll calculation rules and overtime parameters.',
-    });
-  }
-
-  public async resetDemoData(): Promise<void> {
-    localStorage.clear();
-    this.init();
-    await this.addAuditLog({
-      action: 'RESET_DEMO_DATA',
-      entity_type: 'SYSTEM',
-      description: 'Reset database to initial Hyderabad earthmoving operations state.',
-    });
   }
 }
 

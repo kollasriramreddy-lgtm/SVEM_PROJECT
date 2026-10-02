@@ -6,10 +6,13 @@ import {
   MapPin,
   Clock,
   Sparkles,
+  Search,
+  CreditCard,
 } from 'lucide-react';
 import { Profile, CompanySettings } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
 import { DemoUserSwitcher } from '../common/DemoUserSwitcher';
+import { NotificationDropdown } from '../common/NotificationDropdown';
 
 interface NavbarProps {
   currentUser: Profile;
@@ -18,6 +21,8 @@ interface NavbarProps {
   onUserChange: (user: Profile) => void;
   onLogout: () => void;
   currentPageTitle: string;
+  onOpenSearch: () => void;
+  onOpenPaymentModal: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -27,6 +32,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onUserChange,
   onLogout,
   currentPageTitle,
+  onOpenSearch,
+  onOpenPaymentModal,
 }) => {
   const todayStr = new Intl.DateTimeFormat('en-IN', {
     weekday: 'short',
@@ -61,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 SVEM
               </span>
               <span className="hidden md:inline-block text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700">
-                Portal
+                Accounts & Work
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
@@ -75,10 +82,36 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Right: Date, Role Badge, Demo Switcher, User */}
-      <div className="flex items-center gap-2 sm:gap-4">
+      {/* Center/Right: Global Search, Quick Actions, Switcher, Alerts */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Global Search Button */}
+        <button
+          onClick={onOpenSearch}
+          className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+          title="Global Entity Search (Ctrl+K)"
+        >
+          <Search className="h-3.5 w-3.5 text-amber-400" />
+          <span className="hidden md:inline font-medium">Search accounts...</span>
+          <kbd className="hidden lg:inline rounded bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400 font-mono">
+            ⌘K
+          </kbd>
+        </button>
+
+        {/* Central Add Payment Button */}
+        <button
+          onClick={onOpenPaymentModal}
+          className="hidden sm:flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-500 transition-colors"
+          title="Central Payment Entry"
+        >
+          <CreditCard className="h-3.5 w-3.5" />
+          <span>+ Payment</span>
+        </button>
+
+        {/* Notifications Dropdown */}
+        <NotificationDropdown />
+
         {/* Current Date Display */}
-        <div className="hidden lg:flex items-center gap-1.5 rounded-lg bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300 border border-slate-700">
+        <div className="hidden xl:flex items-center gap-1.5 rounded-lg bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300 border border-slate-700">
           <Clock className="h-3.5 w-3.5 text-amber-400" />
           <span>{todayStr}</span>
         </div>
@@ -87,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <DemoUserSwitcher currentUser={currentUser} onUserChange={onUserChange} />
 
         {/* User Info & Role */}
-        <div className="flex items-center gap-3 pl-2 border-l border-slate-800">
+        <div className="flex items-center gap-2.5 pl-2 border-l border-slate-800">
           <div className="hidden sm:block text-right">
             <p className="text-xs font-bold text-white leading-tight">{currentUser.full_name}</p>
             <div className="mt-0.5">

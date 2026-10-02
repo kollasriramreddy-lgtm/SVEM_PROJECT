@@ -9,9 +9,19 @@ import {
   AlertTriangle,
   ArrowRight,
   ShieldCheck,
+  CreditCard,
+  Building2,
   DollarSign,
   Activity,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Fuel,
+  HandCoins,
+  Receipt,
   FileSpreadsheet,
+  Filter,
+  Eye,
+  RefreshCw,
 } from 'lucide-react';
 import {
   BarChart,
@@ -23,463 +33,655 @@ import {
   PieChart,
   Pie,
   Cell,
+  CartesianGrid,
+  Legend,
 } from 'recharts';
 import {
   Profile,
   Site,
   Employee,
-  Attendance,
-  PayrollPeriod,
-  PayrollRecord,
-  AuditLog,
+  Client,
+  Vendor,
+  DailyWorkEntry,
+  Payment,
+  AccountsDashboardSummary,
+  DashboardFilter,
+  CompanySettings,
 } from '../types';
 import { db } from '../services/db/database';
 import { StatCard } from '../components/common/StatCard';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { formatINR } from '../services/payroll/payrollEngine';
+import { QuickActionsBar } from '../components/common/QuickActionsBar';
+import { PaymentEntryModal } from '../components/payments/PaymentEntryModal';
+import { WorkDoneTodayModal } from '../components/work/WorkDoneTodayModal';
+import { AdvanceEntryModal } from '../components/advances/AdvanceEntryModal';
+import { WorkerSettlementModal } from '../components/settlement/WorkerSettlementModal';
+import { ReceiptModal } from '../components/receipts/ReceiptModal';
 
 interface DashboardPageProps {
   currentUser: Profile;
-  onNavigate: (tabId: string) => void;
+  onNavigate: (tabId: string, entityId?: string) => void;
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onNavigate }) => {
   const isSuperAdmin = currentUser.role === 'super_admin';
-  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  const [summary, setSummary] = useState<AccountsDashboardSummary>({
+    totalClientReceivables: 0,
+    totalVendorPayables: 0,
+    totalWorkerEarnings: 0,
+    totalCashAdvances: 0,
+    totalDieselAdvances: 0,
+    totalPaymentsReceived: 0,
+    totalPaymentsMade: 0,
+    totalOutstandingBalance: 0,
+    todayWorkValue: 0,
+    todayFeetCompleted: 0,
+    thisMonthIncome: 0,
+    thisMonthExpenses: 0,
+    thisMonthNetMargin: 0,
+    overdueClientsCount: 0,
+    overdueVendorsCount: 0,
+    unsettledWorkersCount: 0,
+  });
+
+  const [filter, setFilter] = useState<DashboardFilter>({
+    dateRange: 'this_month',
+    siteId: '',
+    clientId: '',
+    vendorId: '',
+    workerId: '',
+  });
+
+  const [clients, setClients] = useState<Client[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [workers, setWorkers] = useState<Employee[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  const [attendancesToday, setAttendancesToday] = useState<Attendance[]>([]);
-  const [latestPayrollPeriod, setLatestPayrollPeriod] = useState<PayrollPeriod | null>(null);
-  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [assignedSiteIds, setAssignedSiteIds] = useState<string[]>([]);
+  const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
+  const [recentWork, setRecentWork] = useState<DailyWorkEntry[]>([]);
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+
   const [loading, setLoading] = useState(true);
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const currentMonth = new Date().getMonth() + 1;
-  const currentYear = new Date().getFullYear();
+  // Modals
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isWorkTodayModalOpen, setIsWorkTodayModalOpen] = useState(false);
+  const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
+  const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<Payment | null>(null);
 
   useEffect(() => {
     loadDashboardData();
-  }, [currentUser]);
+  }, [filter, currentUser]);
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [allEmp, allSites, allPeriods, allLogs, assignments] = await Promise.all([
+      const [sum, cList, vList, wList, sList, pList, workList, company] = await Promise.all([
+        db.getAccountsDashboardSummary(filter),
+        db.getClients(),
+        db.getVendors(),
         db.getEmployees(),
         db.getSites(),
-        db.getPayrollPeriods(),
-        db.getAuditLogs(),
-        db.getManagerSiteAssignments(),
+        db.getPayments(),
+        db.getDailyWorkEntries(),
+        db.getCompanySettings(),
       ]);
 
-      const mySiteIds = isSuperAdmin
-        ? allSites.map((s) => s.id)
-        : assignments.filter((a) => a.manager_id === currentUser.id).map((a) => a.site_id);
-
-      setAssignedSiteIds(mySiteIds);
-      setEmployees(allEmp.filter((e) => isSuperAdmin || (e.site_id && mySiteIds.includes(e.site_id))));
-      setSites(allSites.filter((s) => isSuperAdmin || mySiteIds.includes(s.id)));
-      setAuditLogs(allLogs.slice(0, 8));
-
-      // Fetch today's attendance across all assigned sites
-      const allAttPromises = mySiteIds.map((sid) => db.getAttendanceForSiteAndDate(sid, todayStr));
-      const attArrays = await Promise.all(allAttPromises);
-      const flatAtt = attArrays.flat();
-      setAttendancesToday(flatAtt);
-
-      // Latest Payroll
-      const curPeriod = allPeriods.find((p) => p.year === currentYear && p.month === currentMonth) || allPeriods[0];
-      if (curPeriod) {
-        setLatestPayrollPeriod(curPeriod);
-        const records = await db.getPayrollRecordsForPeriod(curPeriod.id);
-        setPayrollRecords(records);
-      }
+      setSummary(sum);
+      setClients(cList);
+      setVendors(vList);
+      setWorkers(wList);
+      setSites(sList);
+      setRecentPayments(pList.slice(0, 7));
+      setRecentWork(workList.slice(0, 6));
+      setCompanySettings(company);
     } catch (e) {
-      console.error('Error loading dashboard:', e);
+      console.error('Error loading accounts dashboard data:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const presentTodayCount = attendancesToday.filter(
-    (a) => a.status === 'Present' || a.status === 'Sunday Duty' || a.status === 'Half Day'
-  ).length;
-  const absentTodayCount = attendancesToday.filter((a) => a.status === 'Absent').length;
-  const totalAssignedWorkers = employees.filter((e) => e.status === 'active').length;
-  const pendingAttendanceCount = Math.max(0, totalAssignedWorkers - attendancesToday.length);
+  const handleDatePreset = (preset: 'today' | 'this_week' | 'this_month' | 'custom') => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
 
-  // Financial totals
-  const totalPayrollAmount = payrollRecords.reduce((acc, r) => acc + r.net_pay, 0);
-  const totalSundayOTAmount = payrollRecords.reduce((acc, r) => acc + r.sunday_overtime_pay, 0);
-  const totalSandwichDeductions = payrollRecords.reduce((acc, r) => acc + r.sandwich_deductions, 0);
-  const totalAbsenceDeductions = payrollRecords.reduce((acc, r) => acc + r.absence_deductions, 0);
+    if (preset === 'today') {
+      setFilter({ ...filter, dateRange: 'today', startDate: todayStr, endDate: todayStr });
+    } else if (preset === 'this_week') {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay() + 1);
+      setFilter({
+        ...filter,
+        dateRange: 'this_week',
+        startDate: weekStart.toISOString().split('T')[0],
+        endDate: todayStr,
+      });
+    } else if (preset === 'this_month') {
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      setFilter({
+        ...filter,
+        dateRange: 'this_month',
+        startDate: monthStart.toISOString().split('T')[0],
+        endDate: todayStr,
+      });
+    } else {
+      setFilter({ ...filter, dateRange: 'custom' });
+    }
+  };
 
-  // Site breakdown data for charts
-  const sitePayrollData = sites.map((site) => {
-    const siteWorkers = employees.filter((e) => e.site_id === site.id);
-    const siteRecords = payrollRecords.filter((r) => r.site_id === site.id);
-    const sitePay = siteRecords.reduce((acc, r) => acc + r.net_pay, 0);
+  const overdueClientsList = clients.filter((c) => (c.current_due || 0) > 0).slice(0, 4);
+  const overdueVendorsList = vendors
+    .filter((v) => v.balance_type === 'payable' && (v.current_balance || 0) > 0)
+    .slice(0, 4);
 
-    return {
-      name: site.site_name.length > 18 ? site.site_code : site.site_name,
-      workers: siteWorkers.length,
-      payroll: sitePay || siteWorkers.reduce((acc, w) => acc + w.monthly_salary, 0),
-    };
-  });
-
-  const workerTypeDistribution = [
-    { name: 'Excavator Operators', count: employees.filter((e) => e.worker_type === 'Excavator Operator').length, color: '#f59e0b' },
-    { name: 'JCB Operators', count: employees.filter((e) => e.worker_type === 'JCB Operator').length, color: '#d97706' },
-    { name: 'Rock Drillers', count: employees.filter((e) => e.worker_type === 'Rock Driller').length, color: '#0284c7' },
-    { name: 'Heavy Drivers', count: employees.filter((e) => e.worker_type === 'Driver').length, color: '#64748b' },
-    { name: 'Laborers & Helpers', count: employees.filter((e) => e.worker_type === 'Laborer' || e.worker_type === 'Helper').length, color: '#10b981' },
-    { name: 'Others', count: employees.filter((e) => !['Excavator Operator', 'JCB Operator', 'Rock Driller', 'Driver', 'Laborer', 'Helper'].includes(e.worker_type)).length, color: '#8b5cf6' },
-  ].filter((item) => item.count > 0);
-
-  if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent mx-auto" />
-          <p className="mt-3 text-xs font-semibold text-slate-500">Loading Hyderabad operations data...</p>
-        </div>
-      </div>
-    );
-  }
+  // Financial Chart Data
+  const financialBarData = [
+    { name: 'Collections (Inward)', amount: summary.totalPaymentsReceived, fill: '#10b981' },
+    { name: 'Disbursements (Outward)', amount: summary.totalPaymentsMade, fill: '#f43f5e' },
+    { name: 'Worker Earnings', amount: summary.totalWorkerEarnings, fill: '#f59e0b' },
+    { name: 'Diesel Debits', amount: summary.totalDieselAdvances, fill: '#0ea5e9' },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl border border-slate-800">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-amber-500/20 px-2.5 py-1 text-xs font-bold text-amber-400 border border-amber-500/30">
-                {isSuperAdmin ? 'EXECUTIVE ERP DASHBOARD' : 'SITE SUPERVISOR REGISTER'}
-              </span>
-              <span className="text-xs text-slate-400">Hyderabad Hub</span>
-            </div>
-            <h1 className="mt-2 text-xl sm:text-2xl font-black tracking-tight text-white">
-              Namaste, {currentUser.full_name}
-            </h1>
-            <p className="mt-1 text-xs sm:text-sm text-slate-300">
-              {isSuperAdmin
-                ? 'Complete management over earthmoving workforce, site attendance, Sunday overtime & monthly payroll.'
-                : `Operational overview for your ${assignedSiteIds.length} assigned excavation & cutting sites.`}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onNavigate('attendance')}
-              className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-bold text-slate-950 shadow-lg hover:bg-amber-400 transition-all hover:scale-[1.02]"
-            >
-              <CalendarCheck className="h-4 w-4" />
-              Mark Today's Attendance
-            </button>
-
-            {isSuperAdmin && (
-              <button
-                onClick={() => onNavigate('payroll')}
-                className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-semibold text-white hover:bg-slate-700 transition-all"
-              >
-                <Calculator className="h-4 w-4 text-amber-400" />
-                Payroll Engine
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Ambient glow */}
-        <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-amber-500/10 blur-2xl" />
-      </div>
-
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Active Workforce"
-          value={totalAssignedWorkers}
-          subtitle={`${sites.length} Active Sites`}
-          icon={Users}
-          accentColor="amber"
-          onClick={() => onNavigate('employees')}
-        />
-        <StatCard
-          title="Present Today"
-          value={presentTodayCount}
-          subtitle={`${Math.round((presentTodayCount / (totalAssignedWorkers || 1)) * 100)}% attendance rate`}
-          icon={CalendarCheck}
-          accentColor="emerald"
-          onClick={() => onNavigate('attendance')}
-        />
-        <StatCard
-          title="Absent Today"
-          value={absentTodayCount}
-          subtitle={pendingAttendanceCount > 0 ? `${pendingAttendanceCount} pending logs` : 'All sites submitted'}
-          icon={AlertTriangle}
-          accentColor={absentTodayCount > 0 ? 'rose' : 'slate'}
-          onClick={() => onNavigate('attendance')}
-        />
-
-        {isSuperAdmin ? (
-          <StatCard
-            title={`Payroll (${latestPayrollPeriod?.month || currentMonth}/${latestPayrollPeriod?.year || currentYear})`}
-            value={formatINR(totalPayrollAmount || employees.reduce((acc, e) => acc + e.monthly_salary, 0))}
-            subtitle={`Status: ${latestPayrollPeriod?.status || 'Draft'}`}
-            icon={Calculator}
-            accentColor="purple"
-            onClick={() => onNavigate('payroll')}
-          />
-        ) : (
-          <StatCard
-            title="My Assigned Sites"
-            value={sites.length}
-            subtitle="Hyderabad Projects"
-            icon={MapPin}
-            accentColor="blue"
-            onClick={() => onNavigate('sites')}
-          />
-        )}
-      </div>
-
-      {/* Super Admin Financial & Operational Summary Row */}
-      {isSuperAdmin && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/50 p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
-                Sunday Overtime Disbursal
-              </span>
-              <Activity className="h-4 w-4 text-amber-600" />
-            </div>
-            <p className="mt-2 text-2xl font-black text-amber-950">{formatINR(totalSundayOTAmount)}</p>
-            <p className="mt-1 text-xs text-amber-700">
-              Paid at 2.0× daily rate for Sundays worked beyond 2 mandatory Sundays.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-rose-100/50 p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-800">
-                Sandwich & Absence Cuts
-              </span>
-              <AlertTriangle className="h-4 w-4 text-rose-600" />
-            </div>
-            <p className="mt-2 text-2xl font-black text-rose-950">
-              {formatINR(totalSandwichDeductions + totalAbsenceDeductions)}
-            </p>
-            <p className="mt-1 text-xs text-rose-700">
-              Rule D Sandwich cuts: {formatINR(totalSandwichDeductions)} | Unexcused Absences: {formatINR(totalAbsenceDeductions)}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Quick Export Actions
-                </span>
-                <FileSpreadsheet className="h-4 w-4 text-slate-400" />
-              </div>
-              <p className="mt-1 text-xs text-slate-600">
-                Generate formatted PDF salary slips and master Excel registers for company records.
-              </p>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => onNavigate('reports')}
-                className="flex-1 rounded-lg bg-slate-900 py-2 text-xs font-bold text-white hover:bg-slate-800 text-center"
-              >
-                Open Export Center
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Analytics & Distribution Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Site Performance & Payroll Distribution */}
-        <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                Workforce & Financial Distribution by Site
-              </h3>
-              <p className="text-xs text-slate-500">
-                Comparison of worker headcount and monthly payroll across Hyderabad project sites
-              </p>
-            </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
-              Active Sites
+      {/* Top Banner & Quick Actions Strip */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 p-5 text-white shadow-xl">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+              Contractor Financial Overview
             </span>
+            <span className="text-slate-500 text-xs">•</span>
+            <span className="text-xs text-slate-300">Live Accounts & Work Register</span>
+          </div>
+          <h1 className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-white">
+            Main Accounts Dashboard
+          </h1>
+          <p className="mt-0.5 text-xs text-slate-400">
+            Excavation, Rock Drilling, Compressor Operations, Advances & Double-Entry Financials
+          </p>
+        </div>
+
+        {/* Quick Launch Buttons */}
+        <QuickActionsBar
+          onOpenWorkToday={() => setIsWorkTodayModalOpen(true)}
+          onOpenPayment={() => setIsPaymentModalOpen(true)}
+          onOpenAdvance={() => setIsAdvanceModalOpen(true)}
+          onOpenSettlement={() => setIsSettlementModalOpen(true)}
+          onOpenAddClient={() => onNavigate('clients')}
+          onOpenAddVendor={() => onNavigate('vendors')}
+        />
+      </div>
+
+      {/* Filter Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="flex items-center gap-1 font-bold text-slate-700 mr-1">
+            <Filter className="h-3.5 w-3.5 text-amber-500" /> Filter:
+          </span>
+
+          <button
+            onClick={() => handleDatePreset('today')}
+            className={`rounded-lg px-2.5 py-1.5 font-bold transition-all ${
+              filter.dateRange === 'today'
+                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Today
+          </button>
+
+          <button
+            onClick={() => handleDatePreset('this_week')}
+            className={`rounded-lg px-2.5 py-1.5 font-bold transition-all ${
+              filter.dateRange === 'this_week'
+                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            This Week
+          </button>
+
+          <button
+            onClick={() => handleDatePreset('this_month')}
+            className={`rounded-lg px-2.5 py-1.5 font-bold transition-all ${
+              filter.dateRange === 'this_month'
+                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            This Month
+          </button>
+        </div>
+
+        {/* Worksite & Client Dropdown Filters */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <select
+            value={filter.siteId || ''}
+            onChange={(e) => setFilter({ ...filter, siteId: e.target.value })}
+            className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:border-amber-500"
+          >
+            <option value="">All Worksites</option>
+            {sites.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.site_name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filter.clientId || ''}
+            onChange={(e) => setFilter({ ...filter, clientId: e.target.value })}
+            className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:border-amber-500"
+          >
+            <option value="">All Clients</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.company_name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={loadDashboardData}
+            title="Refresh Totals"
+            className="rounded-lg border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-100"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin text-amber-500' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* 8 Core Financial Metrics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Client Receivables */}
+        <div
+          onClick={() => onNavigate('clients')}
+          className="cursor-pointer transition-all hover:scale-[1.01]"
+        >
+          <StatCard
+            title="Total Client Receivables"
+            value={formatINR(summary.totalClientReceivables)}
+            subtitle="Outstanding bills & uncollected client payments"
+            icon={Building2}
+            trend={{ value: `${summary.overdueClientsCount} Clients`, isPositive: true }}
+            accentColor="emerald"
+          />
+        </div>
+
+        {/* 2. Vendor Payables */}
+        <div
+          onClick={() => onNavigate('vendors')}
+          className="cursor-pointer transition-all hover:scale-[1.01]"
+        >
+          <StatCard
+            title="Total Vendor Payables"
+            value={formatINR(summary.totalVendorPayables)}
+            subtitle="Drill bits, explosives, diesel & spare parts dues"
+            icon={CreditCard}
+            trend={{ value: `${summary.overdueVendorsCount} Vendors`, isPositive: false }}
+            accentColor="rose"
+          />
+        </div>
+
+        {/* 3. Today's Completed Work Value */}
+        <div
+          onClick={() => onNavigate('daily-work')}
+          className="cursor-pointer transition-all hover:scale-[1.01]"
+        >
+          <StatCard
+            title="Today's Work Value"
+            value={formatINR(summary.todayWorkValue)}
+            subtitle={`${summary.todayFeetCompleted.toLocaleString()} feet drilled / measured today`}
+            icon={Activity}
+            trend={{ value: 'Live daily entry', isPositive: true }}
+            accentColor="amber"
+          />
+        </div>
+
+        {/* 4. Total Net Outstanding Balance */}
+        <div className="transition-all hover:scale-[1.01]">
+          <StatCard
+            title="Net Balance (Receivables - Payables)"
+            value={formatINR(summary.totalOutstandingBalance)}
+            subtitle="Overall company operational solvency"
+            icon={TrendingUp}
+            trend={{
+              value: summary.totalOutstandingBalance >= 0 ? '+ Positive net equity' : '- Payables exceed dues',
+              isPositive: summary.totalOutstandingBalance >= 0,
+            }}
+            accentColor={summary.totalOutstandingBalance >= 0 ? 'emerald' : 'rose'}
+          />
+        </div>
+
+        {/* 5. Payments Received (Inward) */}
+        <div
+          onClick={() => onNavigate('payment-history')}
+          className="cursor-pointer transition-all hover:scale-[1.01]"
+        >
+          <StatCard
+            title="Payments Received"
+            value={formatINR(summary.totalPaymentsReceived)}
+            subtitle="Bank transfers, UPI & client settlements"
+            icon={ArrowDownLeft}
+            accentColor="emerald"
+          />
+        </div>
+
+        {/* 6. Payments Made (Outward) */}
+        <div
+          onClick={() => onNavigate('payment-history')}
+          className="cursor-pointer transition-all hover:scale-[1.01]"
+        >
+          <StatCard
+            title="Payments Made"
+            value={formatINR(summary.totalPaymentsMade)}
+            subtitle="Vendor bills, salaries & site disbursements"
+            icon={ArrowUpRight}
+            accentColor="rose"
+          />
+        </div>
+
+        {/* 7. Total Cash Advances */}
+        <div
+          onClick={() => onNavigate('advances')}
+          className="cursor-pointer transition-all hover:scale-[1.01]"
+        >
+          <StatCard
+            title="Total Cash Advances"
+            value={formatINR(summary.totalCashAdvances)}
+            subtitle="Unrecovered emergency site cash issued"
+            icon={HandCoins}
+            accentColor="amber"
+          />
+        </div>
+
+        {/* 8. Total Diesel Advances */}
+        <div
+          onClick={() => onNavigate('advances')}
+          className="cursor-pointer transition-all hover:scale-[1.01]"
+        >
+          <StatCard
+            title="Total Diesel Advances"
+            value={formatINR(summary.totalDieselAdvances)}
+            subtitle="Company supplied bowser diesel debit"
+            icon={Fuel}
+            accentColor="blue"
+          />
+        </div>
+      </div>
+
+      {/* Middle Section: Financial Chart + Overdue Balances Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Financial Inflow vs Outflow Chart */}
+        <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                Income, Expenses & Contractor Flows
+              </h2>
+              <p className="text-xs text-slate-500">
+                Collections vs Disbursements vs Operator Value
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                Month Net: {formatINR(summary.thisMonthNetMargin)}
+              </span>
+            </div>
           </div>
 
-          <div className="h-64 w-full">
+          <div className="h-64 pt-4">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sitePayrollData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} interval={0} angle={-15} textAnchor="end" />
-                <YAxis yAxisId="left" orientation="left" tick={{ fontSize: 10, fill: '#64748b' }} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#f59e0b' }} />
-                <Tooltip
-                  formatter={(value: any, name: any) => [
-                    name === 'payroll' ? formatINR(Number(value)) : `${value} workers`,
-                    name === 'payroll' ? 'Monthly Payroll' : 'Active Workers',
-                  ]}
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff', borderRadius: '8px', fontSize: '12px' }}
-                />
-                <Bar yAxisId="left" dataKey="workers" fill="#3b82f6" name="workers" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="right" dataKey="payroll" fill="#f59e0b" name="payroll" radius={[4, 4, 0, 0]} />
+              <BarChart data={financialBarData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value: any) => [formatINR(Number(value)), 'Amount']} />
+                <Bar dataKey="amount" radius={[6, 6, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Right 1 Col: Worker Type Distribution */}
+        {/* Right: Overdue Accounts Alert Panel */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-1">
-              Heavy Equipment Operators
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Breakdown by specialization & machinery
-            </p>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Overdue Balances
+              </h2>
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Action Needed</span>
+            </div>
 
-            <div className="h-44 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={workerTypeDistribution}
-                    dataKey="count"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={70}
-                    paddingAngle={4}
+            {/* Overdue Clients */}
+            <div className="mt-3 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Client Pending Collections
+              </span>
+              {overdueClientsList.length === 0 ? (
+                <p className="text-xs text-slate-400 py-1">No overdue client accounts.</p>
+              ) : (
+                overdueClientsList.map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => onNavigate('clients', c.id)}
+                    className="flex items-center justify-between rounded-xl bg-slate-50 p-2.5 text-xs hover:bg-amber-50/60 cursor-pointer transition-colors"
                   >
-                    {workerTypeDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff', borderRadius: '8px', fontSize: '12px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+                    <div>
+                      <p className="font-bold text-slate-900">{c.company_name}</p>
+                      <p className="text-[10px] text-slate-500">{c.phone}</p>
+                    </div>
+                    <span className="font-black text-rose-600">{formatINR(c.current_due || 0)}</span>
+                  </div>
+                ))
+              )}
             </div>
 
-            <div className="space-y-1.5 mt-2">
-              {workerTypeDistribution.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-slate-600">{item.name}</span>
+            {/* Overdue Vendors */}
+            <div className="mt-4 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Vendor Pending Payables
+              </span>
+              {overdueVendorsList.length === 0 ? (
+                <p className="text-xs text-slate-400 py-1">All vendor bills settled.</p>
+              ) : (
+                overdueVendorsList.map((v) => (
+                  <div
+                    key={v.id}
+                    onClick={() => onNavigate('vendors', v.id)}
+                    className="flex items-center justify-between rounded-xl bg-slate-50 p-2.5 text-xs hover:bg-amber-50/60 cursor-pointer transition-colors"
+                  >
+                    <div>
+                      <p className="font-bold text-slate-900">{v.company_name}</p>
+                      <p className="text-[10px] text-slate-500">{v.vendor_category}</p>
+                    </div>
+                    <span className="font-black text-amber-700">{formatINR(v.current_balance || 0)}</span>
                   </div>
-                  <span className="font-bold text-slate-900">{item.count}</span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between">
+            <button
+              onClick={() => onNavigate('clients')}
+              className="text-xs font-bold text-amber-600 hover:text-amber-700"
+            >
+              View All Clients →
+            </button>
+            <button
+              onClick={() => onNavigate('vendors')}
+              className="text-xs font-bold text-amber-600 hover:text-amber-700"
+            >
+              View All Vendors →
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Sites & Recent Audit Log Trail */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Active Sites Operational Status */}
-        <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-              Project Sites & Excavation Locations
-            </h3>
+      {/* Bottom Section: Recent Payments & Work Activity Tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Payments Feed */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                Recent Payment Transactions
+              </h2>
+              <p className="text-xs text-slate-500">Live Inward & Outward vouchers</p>
+            </div>
             <button
-              onClick={() => onNavigate('sites')}
-              className="text-xs font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+              onClick={() => onNavigate('payment-history')}
+              className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
             >
-              View All Sites <ArrowRight className="h-3.5 w-3.5" />
+              <span>Full History</span>
+              <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
 
-          <div className="space-y-3">
-            {sites.map((site) => {
-              const siteWorkers = employees.filter((e) => e.site_id === site.id);
-              const siteAttToday = attendancesToday.filter((a) => a.site_id === site.id);
-              const presentCount = siteAttToday.filter(
-                (a) => a.status === 'Present' || a.status === 'Sunday Duty' || a.status === 'Half Day'
-              ).length;
+          <div className="divide-y divide-slate-100 mt-2">
+            {recentPayments.length === 0 ? (
+              <p className="text-xs text-slate-400 py-6 text-center">No payment entries logged yet.</p>
+            ) : (
+              recentPayments.map((p) => {
+                const isRec = p.payment_direction === 'Inward';
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-3 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`rounded-lg p-2 ${
+                          isRec ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                        }`}
+                      >
+                        {isRec ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 leading-tight">{p.account_name}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {p.payment_date} • {p.payment_category} • {p.payment_mode}
+                        </p>
+                      </div>
+                    </div>
 
-              return (
-                <div
-                  key={site.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-slate-200 p-4 hover:border-amber-400 transition-colors gap-3"
-                >
-                  <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-slate-900">{site.site_name}</h4>
-                      <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
-                        {site.site_code}
+                      <span className={`font-black ${isRec ? 'text-emerald-600' : 'text-slate-900'}`}>
+                        {isRec ? '+' : '-'} {formatINR(p.amount)}
                       </span>
+                      <button
+                        onClick={() => setSelectedReceiptPayment(p)}
+                        title="View & Print Voucher"
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Client: <span className="font-medium text-slate-700">{site.client_name}</span> • {site.location}
-                    </p>
                   </div>
-
-                  <div className="flex items-center gap-4 sm:gap-6 text-xs">
-                    <div>
-                      <p className="text-slate-400">Total Workers</p>
-                      <p className="font-bold text-slate-900">{siteWorkers.length}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400">Today's Present</p>
-                      <p className="font-bold text-emerald-600">{presentCount} / {siteWorkers.length}</p>
-                    </div>
-                    <button
-                      onClick={() => onNavigate('attendance')}
-                      className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
-                    >
-                      Record
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
-        {/* Recent Audit Trail Stream (Visible to Super Admin) */}
+        {/* Recent Daily Work Entries */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-              Recent Administrative Activity
-            </h3>
-            {isSuperAdmin && (
-              <button
-                onClick={() => onNavigate('audit-logs')}
-                className="text-xs font-semibold text-amber-600 hover:text-amber-700"
-              >
-                All Logs
-              </button>
-            )}
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                Recent Daily Work Logged
+              </h2>
+              <p className="text-xs text-slate-500">Feet drilling, rock cutting & excavator operations</p>
+            </div>
+            <button
+              onClick={() => onNavigate('daily-work')}
+              className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+            >
+              <span>Work Register</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
           </div>
 
-          <div className="space-y-3">
-            {auditLogs.map((log) => (
-              <div key={log.id} className="rounded-lg bg-slate-50 p-3 border border-slate-200 text-xs">
-                <div className="flex items-center justify-between font-semibold text-slate-800 mb-1">
-                  <span className="font-bold text-slate-900">{log.action}</span>
-                  <span className="text-[10px] text-slate-400">
-                    {new Date(log.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+          <div className="divide-y divide-slate-100 mt-2">
+            {recentWork.length === 0 ? (
+              <p className="text-xs text-slate-400 py-6 text-center">No daily work entries logged yet.</p>
+            ) : (
+              recentWork.map((w) => (
+                <div key={w.id} className="flex items-center justify-between py-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="rounded-lg bg-amber-50 p-2 text-amber-600 font-bold">
+                      <HardHat className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 leading-tight">
+                        {w.worker_name} — {w.quantity} {w.measurement_unit} ({w.work_category})
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        {w.work_date} • {w.site_name} • Rate: ₹{w.rate_per_unit}/{w.measurement_unit}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="font-black text-slate-900 block">{formatINR(w.net_payable)}</span>
+                    <span className="text-[10px] text-emerald-600 font-semibold">
+                      Client Bill: {formatINR(w.client_gross_amount || 0)}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-slate-600 text-[11px] leading-relaxed">{log.description}</p>
-                <p className="text-[10px] text-slate-400 mt-1">By: {log.user_name || 'System'}</p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
+
+      {/* Reusable Modals */}
+      {isPaymentModalOpen && (
+        <PaymentEntryModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          onSuccess={(newP) => {
+            loadDashboardData();
+            setSelectedReceiptPayment(newP);
+          }}
+        />
+      )}
+
+      {isWorkTodayModalOpen && (
+        <WorkDoneTodayModal
+          isOpen={isWorkTodayModalOpen}
+          onClose={() => setIsWorkTodayModalOpen(false)}
+          onSuccess={() => loadDashboardData()}
+        />
+      )}
+
+      {isAdvanceModalOpen && (
+        <AdvanceEntryModal
+          isOpen={isAdvanceModalOpen}
+          onClose={() => setIsAdvanceModalOpen(false)}
+          onSuccess={() => loadDashboardData()}
+        />
+      )}
+
+      {isSettlementModalOpen && (
+        <WorkerSettlementModal
+          isOpen={isSettlementModalOpen}
+          onClose={() => setIsSettlementModalOpen(false)}
+          onSuccess={() => loadDashboardData()}
+        />
+      )}
+
+      {selectedReceiptPayment && companySettings && (
+        <ReceiptModal
+          isOpen={Boolean(selectedReceiptPayment)}
+          onClose={() => setSelectedReceiptPayment(null)}
+          payment={selectedReceiptPayment}
+          company={companySettings}
+        />
+      )}
     </div>
   );
 };
