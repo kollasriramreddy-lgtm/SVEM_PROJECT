@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ShieldAlert, ArrowLeft, Lock } from 'lucide-react';
 import { Profile, CompanySettings } from './types';
 import { db } from './services/db/database';
 import { Navbar } from './components/layout/Navbar';
@@ -15,7 +16,7 @@ import { ReportsPage } from './pages/ReportsPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
-// New Accounts & Work Pages
+// Accounts & Work Pages
 import { ClientsPage } from './pages/ClientsPage';
 import { ClientAccountDetailPage } from './pages/ClientAccountDetailPage';
 import { VendorsPage } from './pages/VendorsPage';
@@ -31,6 +32,9 @@ import { WorkerAccountDetailPage } from './pages/WorkerAccountDetailPage';
 import { GlobalSearchModal } from './components/common/GlobalSearchModal';
 import { PaymentEntryModal } from './components/payments/PaymentEntryModal';
 import { ReceiptModal } from './components/receipts/ReceiptModal';
+
+// RBAC
+import { canAccessTab, getDefaultTabForRole, getRoleConfig, hasPermission } from './utils/rbac';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
@@ -58,6 +62,10 @@ export function App() {
         ]);
         setCurrentUser(user);
         setCompanySettings(company);
+        if (user) {
+          const validTab = canAccessTab(user.role, 'dashboard') ? 'dashboard' : getDefaultTabForRole(user.role);
+          setCurrentTab(validTab);
+        }
       } catch (e) {
         console.error('App init error:', e);
       } finally {
@@ -85,13 +93,15 @@ export function App() {
 
   const handleLoginSuccess = (user: Profile) => {
     setCurrentUser(user);
-    setCurrentTab('dashboard');
+    const validTab = canAccessTab(user.role, 'dashboard') ? 'dashboard' : getDefaultTabForRole(user.role);
+    setCurrentTab(validTab);
   };
 
   const handleUserChange = (user: Profile) => {
     setCurrentUser(user);
-    if (user.role === 'manager' && ['managers', 'payroll', 'reports', 'audit-logs', 'settings'].includes(currentTab)) {
-      setCurrentTab('dashboard');
+    if (!canAccessTab(user.role, currentTab)) {
+      const fallbackTab = getDefaultTabForRole(user.role);
+      setCurrentTab(fallbackTab);
     }
   };
 
@@ -114,7 +124,7 @@ export function App() {
           <p className="mt-4 text-xs font-bold uppercase tracking-wider text-amber-400">
             Siddi Vinayaka Earth Movers
           </p>
-          <p className="text-[11px] text-slate-400">Loading Accounts & Operations Portal...</p>
+          <p className="text-[11px] text-slate-400">Loading RBAC Secured Portal...</p>
         </div>
       </div>
     );
@@ -165,6 +175,9 @@ export function App() {
     }
   };
 
+  const isTabAllowed = canAccessTab(currentUser.role, currentTab);
+  const currentRoleConfig = getRoleConfig(currentUser.role);
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
       {/* Top Navigation Bar */}
@@ -197,137 +210,161 @@ export function App() {
         {/* Dynamic Page Content */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">
-            {currentTab === 'dashboard' && (
-              <DashboardPage
-                currentUser={currentUser}
-                onNavigate={handleNavigateWithEntity}
-              />
-            )}
+            {/* RBAC Access Denied Guard */}
+            {!isTabAllowed ? (
+              <div className="rounded-2xl border border-rose-200 bg-white p-8 text-center shadow-lg sm:p-12 max-w-xl mx-auto mt-10">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-100">
+                  <Lock className="h-8 w-8" />
+                </div>
+                <h3 className="mt-4 text-lg font-bold text-slate-900">Access Restricted by RBAC Policy</h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  Your current role <span className="font-semibold text-slate-800">({currentRoleConfig.title})</span> does not have authorization to view or edit the <span className="font-bold text-slate-900">{getPageTitle()}</span> module.
+                </p>
+                <div className="mt-6">
+                  <button
+                    onClick={() => setCurrentTab(getDefaultTabForRole(currentUser.role))}
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors shadow"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Return to Permitted Workspace
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {currentTab === 'dashboard' && (
+                  <DashboardPage
+                    currentUser={currentUser}
+                    onNavigate={handleNavigateWithEntity}
+                  />
+                )}
 
-            {currentTab === 'daily-work' && (
-              <DailyWorkPage
-                currentUser={currentUser}
-                onSelectWorkerAccount={(wId) => {
-                  setSelectedWorkerId(wId);
-                  setCurrentTab('employees');
-                }}
-              />
-            )}
+                {currentTab === 'daily-work' && (
+                  <DailyWorkPage
+                    currentUser={currentUser}
+                    onSelectWorkerAccount={(wId) => {
+                      setSelectedWorkerId(wId);
+                      setCurrentTab('employees');
+                    }}
+                  />
+                )}
 
-            {currentTab === 'clients' && (
-              selectedClientId ? (
-                <ClientAccountDetailPage
-                  clientId={selectedClientId}
-                  onBack={() => setSelectedClientId(null)}
-                />
-              ) : (
-                <ClientsPage
-                  currentUser={currentUser}
-                  onSelectClientAccount={(cId) => setSelectedClientId(cId)}
-                />
-              )
-            )}
+                {currentTab === 'clients' && (
+                  selectedClientId ? (
+                    <ClientAccountDetailPage
+                      clientId={selectedClientId}
+                      onBack={() => setSelectedClientId(null)}
+                    />
+                  ) : (
+                    <ClientsPage
+                      currentUser={currentUser}
+                      onSelectClientAccount={(cId) => setSelectedClientId(cId)}
+                    />
+                  )
+                )}
 
-            {currentTab === 'vendors' && (
-              selectedVendorId ? (
-                <VendorAccountDetailPage
-                  vendorId={selectedVendorId}
-                  onBack={() => setSelectedVendorId(null)}
-                />
-              ) : (
-                <VendorsPage
-                  currentUser={currentUser}
-                  onSelectVendorAccount={(vId) => setSelectedVendorId(vId)}
-                />
-              )
-            )}
+                {currentTab === 'vendors' && (
+                  selectedVendorId ? (
+                    <VendorAccountDetailPage
+                      vendorId={selectedVendorId}
+                      onBack={() => setSelectedVendorId(null)}
+                    />
+                  ) : (
+                    <VendorsPage
+                      currentUser={currentUser}
+                      onSelectVendorAccount={(vId) => setSelectedVendorId(vId)}
+                    />
+                  )
+                )}
 
-            {currentTab === 'payment-history' && (
-              <PaymentHistoryPage
-                currentUser={currentUser}
-                onSelectAccount={(accType, accId) => {
-                  if (accType === 'Client') {
-                    setSelectedClientId(accId);
-                    setCurrentTab('clients');
-                  } else if (accType === 'Vendor') {
-                    setSelectedVendorId(accId);
-                    setCurrentTab('vendors');
-                  } else if (accType === 'Worker') {
-                    setSelectedWorkerId(accId);
-                    setCurrentTab('employees');
-                  }
-                }}
-              />
-            )}
+                {currentTab === 'payment-history' && (
+                  <PaymentHistoryPage
+                    currentUser={currentUser}
+                    onSelectAccount={(accType, accId) => {
+                      if (accType === 'Client') {
+                        setSelectedClientId(accId);
+                        setCurrentTab('clients');
+                      } else if (accType === 'Vendor') {
+                        setSelectedVendorId(accId);
+                        setCurrentTab('vendors');
+                      } else if (accType === 'Worker') {
+                        setSelectedWorkerId(accId);
+                        setCurrentTab('employees');
+                      }
+                    }}
+                  />
+                )}
 
-            {currentTab === 'advances' && (
-              <AdvancesPage
-                currentUser={currentUser}
-                onSelectWorkerAccount={(wId) => {
-                  setSelectedWorkerId(wId);
-                  setCurrentTab('employees');
-                }}
-              />
-            )}
+                {currentTab === 'advances' && (
+                  <AdvancesPage
+                    currentUser={currentUser}
+                    onSelectWorkerAccount={(wId) => {
+                      setSelectedWorkerId(wId);
+                      setCurrentTab('employees');
+                    }}
+                  />
+                )}
 
-            {currentTab === 'materials' && (
-              <MaterialsPage
-                currentUser={currentUser}
-                onOpenPurchases={() => setCurrentTab('purchases')}
-              />
-            )}
+                {currentTab === 'materials' && (
+                  <MaterialsPage
+                    currentUser={currentUser}
+                    onOpenPurchases={() => setCurrentTab('purchases')}
+                  />
+                )}
 
-            {currentTab === 'purchases' && (
-              <PurchaseBillsPage
-                currentUser={currentUser}
-                onSelectVendorAccount={(vId) => {
-                  setSelectedVendorId(vId);
-                  setCurrentTab('vendors');
-                }}
-              />
-            )}
+                {currentTab === 'purchases' && (
+                  <PurchaseBillsPage
+                    currentUser={currentUser}
+                    onSelectVendorAccount={(vId) => {
+                      setSelectedVendorId(vId);
+                      setCurrentTab('vendors');
+                    }}
+                  />
+                )}
 
-            {currentTab === 'attendance' && (
-              <AttendancePage currentUser={currentUser} />
-            )}
+                {currentTab === 'attendance' && (
+                  <AttendancePage currentUser={currentUser} />
+                )}
 
-            {currentTab === 'attendance-history' && (
-              <AttendanceHistoryPage currentUser={currentUser} />
-            )}
+                {currentTab === 'attendance-history' && (
+                  <AttendanceHistoryPage currentUser={currentUser} />
+                )}
 
-            {currentTab === 'sites' && (
-              <SitesPage currentUser={currentUser} />
-            )}
+                {currentTab === 'sites' && (
+                  <SitesPage currentUser={currentUser} />
+                )}
 
-            {currentTab === 'employees' && (
-              selectedWorkerId ? (
-                <WorkerAccountDetailPage
-                  workerId={selectedWorkerId}
-                  onBack={() => setSelectedWorkerId(null)}
-                />
-              ) : (
-                <EmployeesPage currentUser={currentUser} />
-              )
-            )}
+                {currentTab === 'employees' && (
+                  selectedWorkerId ? (
+                    <WorkerAccountDetailPage
+                      workerId={selectedWorkerId}
+                      onBack={() => setSelectedWorkerId(null)}
+                    />
+                  ) : (
+                    <EmployeesPage currentUser={currentUser} />
+                  )
+                )}
 
-            {currentTab === 'managers' && currentUser.role === 'super_admin' && (
-              <ManagersPage />
-            )}
+                {currentTab === 'managers' && (
+                  <ManagersPage />
+                )}
 
-            {currentTab === 'payroll' && currentUser.role === 'super_admin' && (
-              <PayrollPage currentUser={currentUser} />
-            )}
+                {currentTab === 'payroll' && (
+                  <PayrollPage currentUser={currentUser} />
+                )}
 
-            {currentTab === 'reports' && (
-              <ReportsPage />
-            )}
+                {currentTab === 'reports' && (
+                  <ReportsPage />
+                )}
 
-            {currentTab === 'audit-logs' && currentUser.role === 'super_admin' && (
-              <AuditLogsPage />
-            )}
+                {currentTab === 'audit-logs' && (
+                  <AuditLogsPage />
+                )}
 
-            {currentTab === 'settings' && currentUser.role === 'super_admin' && (
-              <SettingsPage />
+                {currentTab === 'settings' && (
+                  <SettingsPage />
+                )}
+              </>
             )}
           </div>
         </main>
@@ -343,7 +380,7 @@ export function App() {
       )}
 
       {/* Central Add Payment Modal */}
-      {isCentralPaymentOpen && (
+      {isCentralPaymentOpen && hasPermission(currentUser.role, 'create:payments') && (
         <PaymentEntryModal
           isOpen={isCentralPaymentOpen}
           onClose={() => setIsCentralPaymentOpen(false)}

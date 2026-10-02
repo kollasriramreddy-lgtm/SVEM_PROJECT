@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HardHat, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { HardHat, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle, CreditCard, FileText, Eye } from 'lucide-react';
 import { db } from '../services/db/database';
 import { Profile } from '../types';
 
@@ -137,16 +137,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Quick Demo Sign-In Buttons */}
           <div className="mt-6 pt-6 border-t border-slate-800">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 text-center mb-3">
-              One-Click Role Demonstration
+              One-Click RBAC Role Demonstration
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => handleQuickLogin('admin@svem.in')}
-                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold transition-colors"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold transition-colors col-span-1 sm:col-span-2"
               >
                 <ShieldCheck className="h-4 w-4" />
                 Super Admin (Owner)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('accountant@svem.in')}
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-semibold transition-colors"
+              >
+                <CreditCard className="h-4 w-4" />
+                Chief Accountant
               </button>
               <button
                 type="button"
@@ -154,7 +162,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-semibold transition-colors"
               >
                 <HardHat className="h-4 w-4" />
-                Site Supervisor (Field)
+                Site Supervisor
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('dataentry@svem.in')}
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-semibold transition-colors"
+              >
+                <FileText className="h-4 w-4" />
+                Data Entry Operator
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('viewer@svem.in')}
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+              >
+                <Eye className="h-4 w-4" />
+                Auditor / Viewer
               </button>
             </div>
             <p className="mt-3 text-[10px] text-center text-slate-500">

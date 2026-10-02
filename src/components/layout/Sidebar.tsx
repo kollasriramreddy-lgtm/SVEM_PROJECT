@@ -19,14 +19,17 @@ import {
   Package,
   Boxes,
   Activity,
+  Shield,
+  FileText,
+  Eye,
 } from 'lucide-react';
 import { UserRole } from '../../types';
+import { canAccessTab, getRoleConfig, isSuperAdmin } from '../../utils/rbac';
 
 interface NavItem {
   id: string;
   label: string;
   icon: React.ElementType;
-  adminOnly?: boolean;
   badge?: string;
   category?: string;
 }
@@ -46,7 +49,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
 }) => {
-  const isSuperAdmin = userRole === 'super_admin' || userRole === 'owner';
+  const isAdmin = isSuperAdmin(userRole);
+  const roleConfig = getRoleConfig(userRole);
 
   const navItems: NavItem[] = [
     // 1. Dashboard & Core Work
@@ -64,18 +68,90 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // 3. Workforce & Attendance
     { id: 'attendance', label: 'Daily Attendance', icon: CalendarCheck, badge: 'Field', category: 'Workforce & Sites' },
     { id: 'attendance-history', label: 'Attendance Matrix', icon: History, category: 'Workforce & Sites' },
-    { id: 'sites', label: isSuperAdmin ? 'Sites Management' : 'My Assigned Sites', icon: MapPin, category: 'Workforce & Sites' },
-    { id: 'employees', label: isSuperAdmin ? 'Workforce & Operators' : 'Assigned Workers', icon: Users, category: 'Workforce & Sites' },
-    { id: 'managers', label: 'Site Supervisors', icon: HardHat, adminOnly: true, category: 'Workforce & Sites' },
+    { id: 'sites', label: isAdmin ? 'Sites Management' : 'My Assigned Sites', icon: MapPin, category: 'Workforce & Sites' },
+    { id: 'employees', label: isAdmin ? 'Workforce & Operators' : 'Assigned Workers', icon: Users, category: 'Workforce & Sites' },
+    { id: 'managers', label: 'Site Supervisors', icon: HardHat, category: 'Workforce & Sites' },
 
     // 4. Payroll & Administration
-    { id: 'payroll', label: 'Payroll Engine', icon: Calculator, adminOnly: true, badge: 'Core', category: 'Reports & Admin' },
-    { id: 'reports', label: 'Reports & Export', icon: FileSpreadsheet, adminOnly: true, category: 'Reports & Admin' },
-    { id: 'audit-logs', label: 'Security Audit Trail', icon: ShieldAlert, adminOnly: true, category: 'Reports & Admin' },
-    { id: 'settings', label: 'System Settings', icon: Settings, adminOnly: true, category: 'Reports & Admin' },
+    { id: 'payroll', label: 'Payroll Engine', icon: Calculator, badge: 'Core', category: 'Reports & Admin' },
+    { id: 'reports', label: 'Reports & Export', icon: FileSpreadsheet, category: 'Reports & Admin' },
+    { id: 'audit-logs', label: 'Security Audit Trail', icon: ShieldAlert, category: 'Reports & Admin' },
+    { id: 'settings', label: 'System Settings', icon: Settings, category: 'Reports & Admin' },
   ];
 
-  const visibleItems = navItems.filter((item) => !item.adminOnly || isSuperAdmin);
+  // Strictly filter items based on RBAC permissions
+  const visibleItems = navItems.filter((item) => canAccessTab(userRole, item.id));
+
+  // Role Scope Banner Config
+  const getRoleBanner = () => {
+    switch (userRole) {
+      case 'super_admin':
+      case 'owner':
+        return (
+          <div className="mx-3 mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+            <div className="flex items-center gap-1.5 font-bold text-amber-400 mb-0.5">
+              <Shield className="h-4 w-4" />
+              Super Admin Authority
+            </div>
+            <p className="text-[11px] text-amber-300/80">
+              Unrestricted full access to financial ledgers, payroll & settings.
+            </p>
+          </div>
+        );
+      case 'accountant':
+        return (
+          <div className="mx-3 mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">
+            <div className="flex items-center gap-1.5 font-bold text-emerald-400 mb-0.5">
+              <CreditCard className="h-4 w-4" />
+              Finance & Ledger Mode
+            </div>
+            <p className="text-[11px] text-emerald-300/80">
+              Access to client/vendor ledgers, receipts, bills & payroll calculation.
+            </p>
+          </div>
+        );
+      case 'manager':
+      case 'site_manager':
+      case 'supervisor':
+        return (
+          <div className="mx-3 mt-4 rounded-xl border border-sky-800/40 bg-sky-950/40 p-3 text-xs text-sky-200">
+            <div className="flex items-center gap-1.5 font-bold text-sky-400 mb-0.5">
+              <HardHat className="h-4 w-4" />
+              Field Supervisor Mode
+            </div>
+            <p className="text-[11px] text-sky-300/80">
+              Access enabled for field work entry, attendance & assigned sites.
+            </p>
+          </div>
+        );
+      case 'data_entry':
+        return (
+          <div className="mx-3 mt-4 rounded-xl border border-purple-800/40 bg-purple-950/40 p-3 text-xs text-purple-200">
+            <div className="flex items-center gap-1.5 font-bold text-purple-400 mb-0.5">
+              <FileText className="h-4 w-4" />
+              Data Entry Operator
+            </div>
+            <p className="text-[11px] text-purple-300/80">
+              Authorized to enter daily work slips, attendance logs & advance records.
+            </p>
+          </div>
+        );
+      case 'viewer':
+        return (
+          <div className="mx-3 mt-4 rounded-xl border border-slate-700 bg-slate-800/60 p-3 text-xs text-slate-300">
+            <div className="flex items-center gap-1.5 font-bold text-slate-300 mb-0.5">
+              <Eye className="h-4 w-4 text-slate-400" />
+              Auditor / Read-Only
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Read-only view of dashboard, attendance, ledgers & audit logs.
+            </p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <>
@@ -106,18 +182,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Operational Scope Banner for Manager */}
-        {!isSuperAdmin && (
-          <div className="mx-3 mt-4 rounded-xl border border-sky-800/40 bg-sky-950/40 p-3 text-xs text-sky-200">
-            <div className="flex items-center gap-1.5 font-bold text-sky-400 mb-1">
-              <HardHat className="h-4 w-4" />
-              Supervisor Field Mode
-            </div>
-            <p className="text-[11px] text-sky-300/80">
-              Access enabled for field work entry, attendance & assigned sites.
-            </p>
-          </div>
-        )}
+        {/* Role Scope Banner */}
+        {getRoleBanner()}
 
         {/* Navigation List */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
@@ -175,13 +241,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </nav>
 
-        {/* Footer Company Identity */}
+        {/* Footer Company Identity & Role Badge */}
         <div className="border-t border-slate-800 p-3 bg-slate-950/40">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${roleConfig.badgeColor}`}>
+              {roleConfig.badge}
+            </span>
+            <span className="text-[10px] text-slate-500 font-mono">RBAC Enabled</span>
+          </div>
           <div className="flex items-center gap-2 text-[11px] text-slate-400">
             <TrendingUp className="h-3.5 w-3.5 text-amber-400 shrink-0" />
             <div>
               <p className="font-semibold text-slate-300">Siddi Vinayaka Earth Movers</p>
-              <p className="text-[10px] text-slate-500">v3.0 Contractor Accounts & Work</p>
+              <p className="text-[10px] text-slate-500">v3.0 Secure Enterprise Portal</p>
             </div>
           </div>
         </div>

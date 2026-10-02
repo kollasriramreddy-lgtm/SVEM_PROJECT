@@ -13,6 +13,7 @@ import { Profile, CompanySettings } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
 import { DemoUserSwitcher } from '../common/DemoUserSwitcher';
 import { NotificationDropdown } from '../common/NotificationDropdown';
+import { hasPermission } from '../../utils/rbac';
 
 interface NavbarProps {
   currentUser: Profile;
@@ -42,6 +43,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     year: 'numeric',
     timeZone: 'Asia/Kolkata',
   }).format(new Date());
+
+  const canCreatePayments = hasPermission(currentUser.role, 'create:payments');
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-800 bg-slate-900 px-4 sm:px-6 shadow-md">
@@ -98,14 +101,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
 
         {/* Central Add Payment Button */}
-        <button
-          onClick={onOpenPaymentModal}
-          className="hidden sm:flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-500 transition-colors"
-          title="Central Payment Entry"
-        >
-          <CreditCard className="h-3.5 w-3.5" />
-          <span>+ Payment</span>
-        </button>
+        {canCreatePayments && (
+          <button
+            onClick={onOpenPaymentModal}
+            className="hidden sm:flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-500 transition-colors"
+            title="Central Payment Entry"
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            <span>+ Payment</span>
+          </button>
+        )}
 
         {/* Notifications Dropdown */}
         <NotificationDropdown />
