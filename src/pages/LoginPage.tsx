@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HardHat, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle, CreditCard, FileText, Eye } from 'lucide-react';
+import { HardHat, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { db } from '../services/db/database';
 import { Profile } from '../types';
 
@@ -27,12 +27,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleQuickLogin = async (demoEmail: string) => {
+  const handleQuickLogin = async (demoEmail: string, pwd: string) => {
     setEmail(demoEmail);
+    setPassword(pwd);
     try {
       setIsLoading(true);
       setError(null);
-      const user = await db.login(demoEmail, 'password123');
+      const user = await db.login(demoEmail, pwd);
       onLoginSuccess(user);
     } catch (err: any) {
       setError(err.message || 'Login failed');
@@ -43,7 +44,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background Graphic Accents */}
+      {/* Background accents */}
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
       <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-slate-800/20 rounded-full blur-3xl" />
 
@@ -76,7 +77,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                Staff Email ID
+                Email ID
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -95,7 +96,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                Secure Password
+                Password
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -112,18 +113,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  defaultChecked
-                  className="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-amber-500"
-                />
-                Remember this device
-              </label>
-              <span className="text-slate-500 cursor-not-allowed">Forgot Password?</span>
-            </div>
-
             <button
               type="submit"
               disabled={isLoading}
@@ -134,55 +123,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          {/* Quick Demo Sign-In Buttons */}
+          {/* Quick Demo Sign-In */}
           <div className="mt-6 pt-6 border-t border-slate-800">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 text-center mb-3">
-              One-Click RBAC Role Demonstration
+              Quick Demo Access
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => handleQuickLogin('admin@svem.in')}
-                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold transition-colors col-span-1 sm:col-span-2"
+                onClick={() => handleQuickLogin('admin@svem.in', 'password123')}
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold transition-colors"
               >
                 <ShieldCheck className="h-4 w-4" />
                 Super Admin (Owner)
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickLogin('accountant@svem.in')}
-                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-semibold transition-colors"
-              >
-                <CreditCard className="h-4 w-4" />
-                Chief Accountant
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('ramesh.supervisor@svem.in')}
+                onClick={() => handleQuickLogin('ramesh.supervisor@svem.in', 'password123')}
                 className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-semibold transition-colors"
               >
                 <HardHat className="h-4 w-4" />
-                Site Supervisor
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('dataentry@svem.in')}
-                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-semibold transition-colors"
-              >
-                <FileText className="h-4 w-4" />
-                Data Entry Operator
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('viewer@svem.in')}
-                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
-              >
-                <Eye className="h-4 w-4" />
-                Auditor / Viewer
+                Site Supervisor (Demo)
               </button>
             </div>
             <p className="mt-3 text-[10px] text-center text-slate-500">
-              Note: Workers and machine operators have zero login access in accordance with security policy.
+              Site Supervisors use credentials created by the Super Admin from the "Site Supervisors" management page.
             </p>
           </div>
         </div>

@@ -78,17 +78,6 @@ const INITIAL_PROFILES: Profile[] = [
     updated_at: '2024-01-01T08:00:00Z',
   },
   {
-    id: 'usr-acct-01',
-    full_name: 'K. Anitha (Accountant)',
-    email: 'accountant@svem.in',
-    phone: '+91 98490 54321',
-    role: 'accountant',
-    status: 'active',
-    avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-    created_at: '2024-01-01T08:00:00Z',
-    updated_at: '2024-01-01T08:00:00Z',
-  },
-  {
     id: 'usr-mgr-01',
     full_name: 'Ramesh Goud (Supervisor)',
     email: 'ramesh.supervisor@svem.in',
@@ -107,28 +96,6 @@ const INITIAL_PROFILES: Profile[] = [
     role: 'manager',
     status: 'active',
     avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    created_at: '2024-01-01T08:00:00Z',
-    updated_at: '2024-01-01T08:00:00Z',
-  },
-  {
-    id: 'usr-data-01',
-    full_name: 'P. Naveen (Data Entry)',
-    email: 'dataentry@svem.in',
-    phone: '+91 98480 77889',
-    role: 'data_entry',
-    status: 'active',
-    avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
-    created_at: '2024-01-01T08:00:00Z',
-    updated_at: '2024-01-01T08:00:00Z',
-  },
-  {
-    id: 'usr-view-01',
-    full_name: 'Internal Auditor (Viewer)',
-    email: 'viewer@svem.in',
-    phone: '+91 98480 99001',
-    role: 'viewer',
-    status: 'active',
-    avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
     created_at: '2024-01-01T08:00:00Z',
     updated_at: '2024-01-01T08:00:00Z',
   },
@@ -370,6 +337,14 @@ class DatabaseService {
       this.set(STORAGE_KEYS.PAYROLL_RULES, INITIAL_PAYROLL_RULES);
     }
 
+    // Seed demo supervisor passwords so quick-login works out of the box
+    if (!localStorage.getItem('svem_pwd_usr-mgr-01')) {
+      localStorage.setItem('svem_pwd_usr-mgr-01', 'password123');
+    }
+    if (!localStorage.getItem('svem_pwd_usr-mgr-02')) {
+      localStorage.setItem('svem_pwd_usr-mgr-02', 'password123');
+    }
+
     this.isInitialized = true;
   }
 
@@ -395,11 +370,32 @@ class DatabaseService {
   public async login(email: string, pass: string): Promise<Profile> {
     const profiles = await this.getProfiles();
     const user = profiles.find((p) => p.email.toLowerCase() === email.toLowerCase());
-    if (user && user.status === 'active') {
-      await this.setCurrentUser(user);
-      return user;
+    if (!user) {
+      throw new Error('No account found with this email address.');
     }
-    throw new Error('Invalid email or inactive profile.');
+    if (user.status !== 'active') {
+      throw new Error('This account has been deactivated. Contact the Super Admin.');
+    }
+
+    // Super Admin & Owner: fixed system password OR the stored password
+    if (user.role === 'super_admin' || user.role === 'owner') {
+      const adminPwd = localStorage.getItem(`svem_pwd_${user.id}`) ?? 'password123';
+      if (pass !== adminPwd && pass !== 'password123') {
+        throw new Error('Incorrect password.');
+      }
+    } else {
+      // Supervisors: must match password set by Super Admin
+      const storedPwd = localStorage.getItem(`svem_pwd_${user.id}`);
+      if (!storedPwd) {
+        throw new Error('No password has been set for this account. Contact the Super Admin.');
+      }
+      if (pass !== storedPwd) {
+        throw new Error('Incorrect password.');
+      }
+    }
+
+    await this.setCurrentUser(user);
+    return user;
   }
 
   public async getCurrentUser(): Promise<Profile> {
